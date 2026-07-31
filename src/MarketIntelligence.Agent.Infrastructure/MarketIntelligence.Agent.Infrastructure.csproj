@@ -4,6 +4,10 @@
     <ProjectReference Include="..\MarketIntelligence.Agent.Application\MarketIntelligence.Agent.Application.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

@@ -8,4 +8,8 @@
     <AssemblyName>MarketIntelligence.Agent.Application</AssemblyName>
   </PropertyGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
 </Project>
