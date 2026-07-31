@@ -1,0 +1,57 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D30FC985-DA02-4E7C-94A9-F486850F2CF6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketIntelligence.Agent.Api", "src\MarketIntelligence.Agent.Api\MarketIntelligence.Agent.Api.csproj", "{3918FD36-7844-4D51-802A-0E70FD11E87D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketIntelligence.Agent.Application", "src\MarketIntelligence.Agent.Application\MarketIntelligence.Agent.Application.csproj", "{7CF16A8A-5EF3-487E-ABAD-0174803A9144}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketIntelligence.Agent.Infrastructure", "src\MarketIntelligence.Agent.Infrastructure\MarketIntelligence.Agent.Infrastructure.csproj", "{D62463C2-D697-4500-85B0-152D6B6B3015}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketIntelligence.Agent.Worker", "src\MarketIntelligence.Agent.Worker\MarketIntelligence.Agent.Worker.csproj", "{EC08B396-4D5C-45C9-B177-37BAC4770D96}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{7653DAF9-6FE1-48A0-A749-A749F2B84D71}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MarketIntelligence.Agent.Tests", "tests\MarketIntelligence.Agent.Tests\MarketIntelligence.Agent.Tests.csproj", "{908B2060-3CD1-4486-818F-FF4BFE46B3B3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3918FD36-7844-4D51-802A-0E70FD11E87D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3918FD36-7844-4D51-802A-0E70FD11E87D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3918FD36-7844-4D51-802A-0E70FD11E87D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3918FD36-7844-4D51-802A-0E70FD11E87D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{7CF16A8A-5EF3-487E-ABAD-0174803A9144}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7CF16A8A-5EF3-487E-ABAD-0174803A9144}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7CF16A8A-5EF3-487E-ABAD-0174803A9144}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7CF16A8A-5EF3-487E-ABAD-0174803A9144}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D62463C2-D697-4500-85B0-152D6B6B3015}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D62463C2-D697-4500-85B0-152D6B6B3015}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D62463C2-D697-4500-85B0-152D6B6B3015}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D62463C2-D697-4500-85B0-152D6B6B3015}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EC08B396-4D5C-45C9-B177-37BAC4770D96}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EC08B396-4D5C-45C9-B177-37BAC4770D96}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EC08B396-4D5C-45C9-B177-37BAC4770D96}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EC08B396-4D5C-45C9-B177-37BAC4770D96}.Release|Any CPU.Build.0 = Release|Any CPU
+		{908B2060-3CD1-4486-818F-FF4BFE46B3B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{908B2060-3CD1-4486-818F-FF4BFE46B3B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{908B2060-3CD1-4486-818F-FF4BFE46B3B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{908B2060-3CD1-4486-818F-FF4BFE46B3B3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{3918FD36-7844-4D51-802A-0E70FD11E87D} = {D30FC985-DA02-4E7C-94A9-F486850F2CF6}
+		{7CF16A8A-5EF3-487E-ABAD-0174803A9144} = {D30FC985-DA02-4E7C-94A9-F486850F2CF6}
+		{D62463C2-D697-4500-85B0-152D6B6B3015} = {D30FC985-DA02-4E7C-94A9-F486850F2CF6}
+		{EC08B396-4D5C-45C9-B177-37BAC4770D96} = {D30FC985-DA02-4E7C-94A9-F486850F2CF6}
+		{908B2060-3CD1-4486-818F-FF4BFE46B3B3} = {7653DAF9-6FE1-48A0-A749-A749F2B84D71}
+	EndGlobalSection
+EndGlobal

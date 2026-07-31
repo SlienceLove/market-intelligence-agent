@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MarketIntelligence.Agent.Application\MarketIntelligence.Agent.Application.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MarketIntelligence.Agent.Infrastructure</RootNamespace>
+    <AssemblyName>MarketIntelligence.Agent.Infrastructure</AssemblyName>
+  </PropertyGroup>
+
+</Project>

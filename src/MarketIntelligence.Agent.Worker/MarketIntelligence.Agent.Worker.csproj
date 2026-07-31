@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MarketIntelligence.Agent.Worker</RootNamespace>
+    <AssemblyName>MarketIntelligence.Agent.Worker</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MarketIntelligence.Agent.Application\MarketIntelligence.Agent.Application.csproj" />
+    <ProjectReference Include="..\MarketIntelligence.Agent.Infrastructure\MarketIntelligence.Agent.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

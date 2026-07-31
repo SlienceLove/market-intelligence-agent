@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MarketIntelligence.Agent.Application\MarketIntelligence.Agent.Application.csproj" />
+    <ProjectReference Include="..\MarketIntelligence.Agent.Infrastructure\MarketIntelligence.Agent.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MarketIntelligence.Agent.Api</RootNamespace>
+    <AssemblyName>MarketIntelligence.Agent.Api</AssemblyName>
+  </PropertyGroup>
+
+</Project>

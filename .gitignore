@@ -1,0 +1,11 @@
+bin/
+obj/
+.idea/
+.vs/
+*.user
+*.suo
+.env
+appsettings.*.local.json
+data/
+media/
+artifacts/
