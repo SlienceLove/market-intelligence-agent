@@ -1,6 +1,0 @@
-@MarketIntelligence.Agent.Api_HostAddress = http://localhost:5294
-
-GET {{MarketIntelligence.Agent.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
