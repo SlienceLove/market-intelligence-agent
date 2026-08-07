@@ -8,6 +8,23 @@
 
 **Tech Stack:** .NET 8 LTS, C# 12, ASP.NET Core Minimal API, Worker Service, xUnit, Microsoft.AspNetCore.Mvc.Testing, built-in dependency injection and configuration.
 
+## Delivery Status (2026-07-31)
+
+- [x] Task 1: The .NET 8 Rider solution and its five-project dependency graph are in place.
+- [x] Task 2: The API exposes `GET /health`, with an in-memory contract test.
+- [x] Task 3: The cancellable background host, safe configuration defaults, ignore rules, and README are in place.
+- [x] The solution passed `dotnet test MarketIntelligence.Agent.sln --configuration Release --no-restore -m:1 -p:NuGetAudit=false`.
+- [x] The source is published at https://github.com/SlienceLove/market-intelligence-agent on the `main` branch.
+
+### Communication Smoke Test (2026-07-31)
+
+- [x] `dotnet --list-sdks` confirmed SDK `8.0.423` is installed.
+- [x] `dotnet restore MarketIntelligence.Agent.sln` restored all five projects successfully.
+- [x] `dotnet build MarketIntelligence.Agent.sln --configuration Release -m:1 -p:NuGetAudit=false` built all five projects with 0 warnings and 0 errors.
+- [x] `dotnet test MarketIntelligence.Agent.sln --configuration Release --no-build -m:1 -p:NuGetAudit=false --filter "FullyQualifiedName~HealthEndpointTests"` passed the focused health endpoint test (1 passed, 0 failed, 0 skipped).
+- [x] The in-process API communication path is operational: the test host started, `GET /health` returned HTTP 200, and the response matched the `{"status":"ready"}` contract.
+The task details below are retained as the implementation record for the delivered foundation. Future feature work should be added as separate, scoped plans rather than modifying the completed baseline tasks.
+
 ## Global Constraints
 
 - Use the locally installed .NET SDK 8.0.423 and target net8.0 in every project.

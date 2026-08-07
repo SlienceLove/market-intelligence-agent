@@ -2,11 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Stand up a private Dify environment with imported classified/unclassified knowledge bases, a working web-search plugin, and a proven IMA-to-Dify note sync path, so later phases can build workflows and content generation on top of it.
+**Goal:** Stand up a private Dify environment with imported classified/unclassified knowledge bases and a working web-search plugin, so later phases can build workflows and content generation on top of it. The IMA-to-Dify note sync path is deferred and is not a prerequisite for later phases.
 
-**Architecture:** Dify is deployed as a self-hosted Docker Compose stack reachable only on the internal network. Source material is split into two knowledge-base tracks — topic-classified libraries for material that is already organized, and a single "待分类" (unclassified) library as a landing zone — so retrieval routing in Phase 2 has a clean priority order to build on. A web search plugin covers queries the knowledge bases can't answer. IMA notes reach Dify through a manual-but-repeatable export/import path proven at least once end-to-end.
+**Architecture:** Dify is deployed as a self-hosted Docker Compose stack reachable only on the internal network. Source material is split into two knowledge-base tracks — topic-classified libraries for material that is already organized, and a single "待分类" (unclassified) library as a landing zone — so retrieval routing in Phase 2 has a clean priority order to build on. A web search plugin covers queries the knowledge bases can't answer. Phase 2 uses the five formally imported and retrieval-validated files as its initial validation baseline; future files can be imported directly into Dify.
 
-**Tech Stack:** Dify (self-hosted, Docker Compose), Dify's built-in knowledge-base import (documents/URLs), a Dify-marketplace web search plugin, IMA manual export (Markdown/HTML) → Dify dataset import.
+**Tech Stack:** Dify (self-hosted, Docker Compose), Dify's built-in knowledge-base import (Markdown, Word `.doc/.docx`, PDF), and a Dify-marketplace web search plugin.
 
 ## Global Constraints
 
@@ -28,7 +28,7 @@ These are the Dify-side objects created during this phase. Nothing in this list 
 | Topic-classified knowledge bases (N bases, one per topic) | Material that is already organized; used in Phase 2 high-priority retrieval |
 | "待分类" knowledge base | Landing zone for unorganized material; lowest retrieval priority |
 | Web search plugin (Dify marketplace) | Covers queries not answered by any knowledge base |
-| IMA → Dify sync SOP (Markdown doc committed here) | Repeatable manual procedure proven end-to-end |
+| IMA → Dify sync SOP (Markdown doc committed here) | Deferred reference procedure; not a Phase 1 or Phase 2 gate |
 
 SOP location in this repo: `docs/ops/ima-to-dify-sync.md` (created in Task 5).
 
@@ -147,7 +147,7 @@ For each knowledge base:
 
 ```
 Open the knowledge base → + Add file
-  Upload: drag in all documents for that topic (PDF, DOCX, TXT, MD supported)
+  Upload: drag in all documents for that topic (MD, DOC/DOCX, PDF supported)
   Chunk size: 500 tokens (Dify default — keep unless retrieval quality is poor)
   Click Save and process
 ```
@@ -276,26 +276,30 @@ Studio → web-search-smoke-test → Settings → Delete app
 
 ---
 
-## Task 5: IMA Notes → Dify Sync Path — End-to-End Proof
+## Task 5: IMA Notes → Dify Sync Path — Deferred
 
-**Target date:** 2026-08-06 ~ 2026-08-07
+**Target date:** Deferred by project decision on 2026-08-06
+
+**Status:** ⏭️ This task is intentionally skipped for now. It does not block Phase 1 closure, Phase 2 startup, Workflow configuration, or Phase 2 acceptance. The five formally imported market-department files from Task 2 are the validation baseline instead.
+
+When this task is resumed, import prepared `.md`, Word `.doc/.docx`, or `.pdf` files directly into the appropriate Dify knowledge base. Do not add an IMA direct integration or automatic synchronization implementation in Phase 1/2 without a separate approval.
 
 **Files:**
 - Create: `docs/ops/ima-to-dify-sync.md` — repeatable SOP committed to this repo.
 
 **Interfaces:**
 - Consumes: IMA (腾讯ima.qq.com) notes organized under one or more workspace notebooks; at least one note with substantive text content (not just images).
-- Produces: the note content retrievable from a Dify knowledge base; `docs/ops/ima-to-dify-sync.md` documenting every step so any team member can repeat it.
+- Produces when resumed: the note content retrievable from a Dify knowledge base; `docs/ops/ima-to-dify-sync.md` remains the repeatable reference procedure.
 
-> **Why this is its own task:** IMA does not have a direct Dify integration — the sync path requires an export/import loop. Getting it right once, then documenting it, means Phase 2's "整理迁移机制" has a proven foundation to build on.
+> **Deferral reason:** IMA does not have a direct Dify integration. The export/import loop is intentionally postponed so it does not delay Phase 2; Phase 2 uses the five files already imported and validated in Task 2.
 
-- [ ] **Step 1: Export a batch of notes from IMA**
+- [ ] **Step 1: Export a batch of notes from IMA (when the deferred task is resumed)**
 
 In IMA:
 
 ```
-Select 5–10 notes that should eventually live in the high-priority knowledge bases
-Export → Markdown (.md) or Word (.docx) — whichever produces cleaner output
+Select notes that should eventually live in the high-priority knowledge bases
+Export → Markdown (.md), Word (.doc/.docx), or PDF (.pdf) — whichever produces cleaner output
 Download the export archive
 ```
 
@@ -307,7 +311,7 @@ Pick the topic knowledge base most relevant to the exported notes (created in Ta
 
 ```
 Dify → Knowledge → [target knowledge base] → + Add file
-  Upload the exported .md or .docx files
+  Upload the prepared .md, .doc/.docx, or .pdf files
   Wait for indexing: Completed
 ```
 
@@ -328,14 +332,14 @@ Create `docs/ops/ima-to-dify-sync.md`:
 
 ## 触发条件
 - IMA 中积累了新的、已整理好的笔记，需要迁移到 Dify 高优先级知识库。
-- 频率：阶段二确定责任人和节奏后按计划执行；阶段一至少完整走通一次。
+- 频率：恢复后按团队确定的责任人和节奏执行；本次暂缓，不作为阶段一/二验收条件。
 
 ## 步骤
 
 ### 1. 在 IMA 中选择并导出笔记
 1. 打开 [ima.qq.com](https://ima.qq.com)，进入目标工作区。
 2. 勾选需要迁移的笔记（按主题批量选择）。
-3. 导出格式：优先选 Markdown；如内容包含大量图片则选 Word (.docx)。
+3. 导出格式：优先选 Markdown；也可使用 Word (.doc/.docx) 或 PDF (.pdf)。
 4. 下载导出压缩包，解压到本地临时目录。
 
 ### 2. 检查导出文件
@@ -348,7 +352,7 @@ Create `docs/ops/ima-to-dify-sync.md`:
 
 ### 4. 导入 Dify 知识库
 1. Dify → 知识库 → 选择对应主题知识库（或「待分类」）。
-2. 点击「+ 添加文件」，上传该主题目录下所有文件。
+2. 点击「+ 添加文件」，直接上传该主题目录下的 `.md`、`.doc/.docx` 或 `.pdf` 文件。
 3. 等待索引状态变为「已完成」。
 
 ### 5. 验收
@@ -370,9 +374,10 @@ git add docs/ops/ima-to-dify-sync.md
 git commit -m "docs: add IMA to Dify sync SOP"
 ```
 
-**Acceptance criteria:**
-- At least one batch of IMA notes exported, imported into the correct Dify knowledge base, indexed with `Completed` status, and retrievable via the retrieval test.
-- `docs/ops/ima-to-dify-sync.md` committed and covers every step needed for a team member to repeat the process.
+**Current-phase acceptance criteria:**
+- IMA connectivity is explicitly recorded as deferred and is not required for Phase 1 completion or Phase 2 entry.
+- The five formally imported market-department files remain the validation baseline for Phase 2.
+- `docs/ops/ima-to-dify-sync.md` remains available as a future reference and is not evidence that an end-to-end IMA run has been completed.
 
 ---
 
@@ -383,9 +388,8 @@ git commit -m "docs: add IMA to Dify sync SOP"
 - 已分类资料建库导入 → Task 2 ✓
 - 未分类资料导入待分类库 → Task 3 ✓
 - 联网搜索插件接入调试 → Task 4 ✓
-- IMA笔记同步流程打通 → Task 5 ✓
+- IMA笔记同步流程打通 → Task 5 暂缓，不阻塞后续阶段
 
 **Placeholder scan:** No TBD, TODO, or "similar to Task N" placeholders present. All steps have explicit commands or UI paths.
 
 **Type consistency:** No code interfaces in this phase — task boundaries are acceptance criteria and file paths only, consistent throughout.
-
