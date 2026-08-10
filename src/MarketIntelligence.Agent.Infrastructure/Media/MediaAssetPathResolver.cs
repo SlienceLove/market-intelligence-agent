@@ -174,7 +174,14 @@ public sealed class MediaAssetPathResolver : IMediaAssetPathResolver
         }
 
         // Resolve the root itself so a linked root compares against its real target.
-        root = ResolveFinalPath(full);
+        // An unresolvable root means the boundary is unknown, so report it as
+        // unconfigured rather than comparing against a path we could not verify.
+        if (!TryResolveFinalPath(full, out root))
+        {
+            failureCode = "provider_not_configured";
+            return false;
+        }
+
         return true;
     }
 
@@ -243,10 +250,13 @@ public sealed class MediaAssetPathResolver : IMediaAssetPathResolver
             return MediaPathResolution.Fail("unsafe_asset_reference");
         }
 
-        // The lexical check above cannot see links. Re-check the deepest existing
-        // ancestor after link resolution so a link inside the root cannot point out.
-        var realized = ResolveFinalPath(candidate);
-        if (!IsContained(root, realized))
+        // The lexical check above cannot see links. Re-check every component after link
+        // resolution so a link inside the root cannot point out.
+        //
+        // Fail closed when resolution could not complete. Returning the lexical path on
+        // an IO or access error would silently downgrade this to the check above, which
+        // is exactly the guarantee links defeat.
+        if (!TryResolveFinalPath(candidate, out var realized) || !IsContained(root, realized))
         {
             return MediaPathResolution.Fail("unsafe_asset_reference");
         }
@@ -277,8 +287,14 @@ public sealed class MediaAssetPathResolver : IMediaAssetPathResolver
     /// as "not a link" even when <c>link</c> points outside the root. Every ancestor has
     /// to be resolved for containment to mean anything. Output paths legitimately do not
     /// exist yet, so absence is not treated as a failure.
+    ///
+    /// Returns false when resolution could not be completed, so the caller can reject
+    /// rather than fall back to the lexical path. This only proves containment at the
+    /// moment of the call: a writable ancestor swapped for a link afterwards still
+    /// redirects the eventual open. Keeping the asset root writable only by this service
+    /// is what closes that window; see docs/ops/m4-05-adversarial-review.md.
     /// </summary>
-    private static string ResolveFinalPath(string path)
+    private static bool TryResolveFinalPath(string path, out string resolvedPath)
     {
         var segments = new List<string>();
         var current = path;
@@ -298,38 +314,78 @@ public sealed class MediaAssetPathResolver : IMediaAssetPathResolver
         segments.Reverse();
 
         var resolved = current;
+        var reachedMissingComponent = false;
+
         foreach (var segment in segments)
         {
+            string combined;
             try
             {
-                resolved = ResolveLinkChain(Path.GetFullPath(Path.Combine(resolved, segment)));
+                combined = Path.GetFullPath(Path.Combine(resolved, segment));
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                resolvedPath = string.Empty;
+                return false;
+            }
+
+            // Once a component is missing, nothing below it exists either, so no deeper
+            // component can be a link. Output directories are created later by design;
+            // treating their absence as unresolvable would reject every write path.
+            if (reachedMissingComponent || !Exists(combined))
+            {
+                reachedMissingComponent = true;
+                resolved = combined;
+                continue;
+            }
+
+            try
+            {
+                resolved = ResolveLinkChain(combined);
             }
             catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException or IOException or UnauthorizedAccessException)
             {
-                return path;
+                // The component is there but its target could not be determined, so
+                // containment is genuinely unknown. That is not the same as absent.
+                resolvedPath = string.Empty;
+                return false;
             }
         }
 
-        return resolved;
+        resolvedPath = resolved;
+        return true;
     }
 
+    private static bool Exists(string path)
+    {
+        try
+        {
+            return File.Exists(path) || Directory.Exists(path);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // Treat an unreadable component as present: it must go through link
+            // resolution, which will fail closed rather than be skipped as absent.
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Follows a link chain to its final target. Throws rather than returning the
+    /// unresolved path on failure: an unresolvable component means containment is
+    /// unknown, and treating unknown as contained is what a bypass looks like.
+    /// Exhausting the depth limit is also a failure — a cycle or an absurdly long
+    /// chain is not something to resolve optimistically.
+    /// </summary>
     private static string ResolveLinkChain(string path)
     {
         var current = path;
 
         for (var depth = 0; depth < 16; depth++)
         {
-            FileSystemInfo? target;
-            try
-            {
-                target = Directory.Exists(current)
-                    ? new DirectoryInfo(current).ResolveLinkTarget(returnFinalTarget: true)
-                    : new FileInfo(current).ResolveLinkTarget(returnFinalTarget: true);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-            {
-                return current;
-            }
+            var target = Directory.Exists(current)
+                ? new DirectoryInfo(current).ResolveLinkTarget(returnFinalTarget: true)
+                : new FileInfo(current).ResolveLinkTarget(returnFinalTarget: true);
 
             if (target is null)
             {
@@ -339,6 +395,6 @@ public sealed class MediaAssetPathResolver : IMediaAssetPathResolver
             current = target.FullName;
         }
 
-        return current;
+        throw new IOException("Link chain exceeded 16 levels.");
     }
 }
