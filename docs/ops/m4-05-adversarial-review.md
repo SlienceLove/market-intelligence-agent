@@ -14,15 +14,19 @@
 
 `src/MarketIntelligence.Agent.Infrastructure/Media/MediaAssetPathResolver.cs:246-310`
 
+**状态:部分修复**
+
 两个独立问题：
 
-- **失败开放**：逐分量解析过程中捕获 `IOException` / `UnauthorizedAccessException`
-  后返回原始词法路径，等同于把“解析失败”降级为“仅词法检查”通过。
-- **校验与使用未绑定**：解析只产出一个时点的路径字符串，不保留文件句柄。可写祖先目录
+- **失败开放(已修)**：逐分量解析过程中捕获 `IOException` / `UnauthorizedAccessException`
+  后返回原始词法路径，等同于把”解析失败”降级为”仅词法检查”通过。**已改为
+  `TryResolveFinalPath`，解析不完整时返回 false，调用方拒绝请求。**链接环耗尽
+  深度限制也改为抛出 `IOException` 而非返回最后一跳。
+- **校验与使用未绑定(未修)**：解析只产出一个时点的路径字符串，不保留文件句柄。可写祖先目录
   可在校验通过之后、FFmpeg 打开输入或创建输出之前被替换为 junction/symlink，从而读写
   `AssetRoot` 之外的位置。
 
-建议：解析不完整时一律失败关闭；并将校验绑定到实际使用——用 no-follow、基于描述符的
+建议：解析不完整时一律失败关闭(已完成)；并将校验绑定到实际使用——用 no-follow、基于描述符的
 相对打开，或把媒体经安全句柄暂存到服务自有的非 reparse 目录，或对 FFmpeg 做沙箱隔离。
 
 ### 2. [高] 取消后子孙进程可能仍在运行
@@ -52,14 +56,20 @@ JPEG 序号只是 image muxer 连续的输出索引，不是所选帧的源 PTS�
 
 `tests/MarketIntelligence.Agent.Tests/MediaAssetPathResolverLinkTests.cs:55-75`
 
+**状态:已修复**
+
 无法创建符号链接时，测试在任何断言之前正常返回，xUnit 记为通过。在常见的非特权
 Windows CI runner 上，整个套件可以全绿而从未验证过文件链接或目录链接的包含性。
 
-（同类缺陷已在 `FfmpegRealBinarySmokeTests` 上修复，改用 `RequiresRealFfmpegFact` 设置 `Skip`。）
+**已改为 `RequiresSymbolicLinkFact`，在能力探测失败时设置 `Skip`，报告为跳过而非通过。**
+增加 `MI_REQUIRE_SYMLINK_TESTS=1` 环境变量门控，在至少一条 CI 通道中将跳过变为硬失败。
+补充链接环测试，验证深度限制耗尽时拒绝。
 
-建议：把能力缺失报告为真正的 skipped，并要求至少一条具备特权/开发者模式的 CI 通道必须
-实际执行这些测试；补充确定性的 junction/reparse point 与链接替换测试，断言真正被打开或
-写入的目标仍在 `AssetRoot` 内。
+另外新增 junction 测试 4 项：Windows junction 无需管理员权限即可创建（`mklink /J` 在
+`IsUserAnAdmin() == 0` 时成功，本机已验证），因此它是比符号链接更现实的攻击面。解析器
+同样拦截逃逸 root 的 junction、嵌套 junction 和输出路径下的逃逸 junction。
+
+测试数:135 → 140 (+4 符号链接 +1 环 +4 junction)，配置真实 FFmpeg 时全通过。
 
 ## 后续动作
 
