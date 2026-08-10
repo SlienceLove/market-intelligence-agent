@@ -158,6 +158,10 @@
 | 2026-08-10 | 完成 RapidOCR OCR sidecar：仅接受受控 `temp://media/` 图片资源，返回时间戳、坐标框、语言和置信度；路径隔离、服务间鉴权、真实截图识别及 API → 队列 → HTTP adapter → sidecar 全链路 smoke 通过。当前不在 sidecar 内抽取视频帧。 |
 | 2026-08-10 | 完成视频帧采样边界：新增 `IVideoFrameSampler`、采样选项和受控 FFmpeg 参数构造；限制采样间隔、最大帧数、最大时长和超时，拒绝非视频、非 `asset://`/`fixture://` 输入及路径穿越；4 项契约测试和全量 63 项 .NET 测试通过。当前机器未安装 FFmpeg，真实视频抽取 smoke 待环境具备后执行。 |
 | 2026-08-10 | 通过用户范围 `Gyan.FFmpeg.Essentials 8.1.1` 完成真实抽帧验证：本地合成 3 秒视频抽取 3 张 JPEG，并送入 RapidOCR sidecar；OCR 返回 3 个文本框，最低置信度 `0.7991`。模型、视频和图片均保存在仓库外临时目录。 |
+| 2026-08-10 | M4-05a FFmpeg 运行时落地到分支 `feat/m4-05-ffmpeg-runtime`，共 7 个提交，每个提交单独构建/测试验证。新增 `MediaAssetPathResolver`、`FfmpegProcessRunner`、`FfprobeMediaProbe`、`FfmpegVideoFrameSampler`、`FfmpegVideoCompositionService` 及 DI 注册。测试自 63 项增至 135 项：未配置 FFmpeg 时 131 通过 + 4 跳过，配置真实 FFmpeg 时 135 全通过。 |
+| 2026-08-10 | 测试过程中修复三个由失败测试定位的真实缺陷：① `ResolveFinalPath` 仅解析末端节点，操作系统透明穿越目录链接导致根目录包含性检查形同虚设，改为自顶向下逐分量解析；② 帧去重漏掉第一对重复帧（长度不同即丢弃前一帧哈希）；③ 丢弃重复帧后时间戳整体前移。 |
+| 2026-08-10 | 修正冒烟测试门控缺陷：原早退（early return）写法在未配置 FFmpeg 时报告为“通过”，导致空转与真实验证无法区分——此前 131 通过的结果中 4 项冒烟实际 9 毫秒内未调用 FFmpeg。改用 `RequiresRealFfmpegFact` 在发现阶段设置 `Skip`，惰性状态现可见。 |
+| 2026-08-10 | `/codex:adversarial-review` 结论为 **needs-attention**（4 项：2 高 2 中），尚未验收。未修项：① 包含性对 TOCTOU 链接替换竞争仍可绕过，且分量解析异常时退化为词法检查（失败开放）；② `KillProcessTree` 丢弃 kill/reap 结果，取消后不保证子孙进程已终止；③ 帧时间戳取自 JPEG muxer 序号而非源 PTS，变帧率/非零起始 PTS 素材会算错；④ 符号链接包含性测试在无建链权限机器上静默通过。①② 的彻底修复需 OS 级进程/文件句柄约束（Windows Job Object、no-follow 描述符），属架构决策，待确认后执行。 |
 
 ---
 
