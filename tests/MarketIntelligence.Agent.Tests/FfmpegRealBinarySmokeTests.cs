@@ -12,6 +12,10 @@ namespace MarketIntelligence.Agent.Tests;
 ///
 /// Opt-in via environment variables so the suite still runs where FFmpeg is absent:
 ///   MI_SMOKE_FFMPEG=&lt;path to ffmpeg&gt;  MI_SMOKE_FFPROBE=&lt;path to ffprobe&gt;
+///
+/// Unconfigured runs report as *skipped*, not passed — see
+/// <see cref="RequiresRealFfmpegFactAttribute"/>. Reporting green while exercising
+/// nothing is how an inert smoke run gets mistaken for a real verification.
 /// </summary>
 public sealed class FfmpegRealBinarySmokeTests : IDisposable
 {
@@ -40,10 +44,6 @@ public sealed class FfmpegRealBinarySmokeTests : IDisposable
             // Temp cleanup is best-effort.
         }
     }
-
-    private bool Enabled =>
-        !string.IsNullOrWhiteSpace(_ffmpeg) && File.Exists(_ffmpeg) &&
-        !string.IsNullOrWhiteSpace(_ffprobe) && File.Exists(_ffprobe);
 
     private MediaOptions CreateOptions()
     {
@@ -100,13 +100,9 @@ public sealed class FfmpegRealBinarySmokeTests : IDisposable
         return path;
     }
 
-    [Fact]
+    [RequiresRealFfmpegFact]
     public async Task Samples_real_frames_from_a_real_video()
     {
-        if (!Enabled)
-        {
-            return;
-        }
 
         GenerateVideo(seconds: 4);
         var options = CreateOptions();
@@ -141,13 +137,9 @@ public sealed class FfmpegRealBinarySmokeTests : IDisposable
         Assert.Equal(0xD8, first[1]);
     }
 
-    [Fact]
+    [RequiresRealFfmpegFact]
     public async Task Probes_real_durations()
     {
-        if (!Enabled)
-        {
-            return;
-        }
 
         var path = GenerateVideo("probe.mp4", seconds: 3);
         var options = CreateOptions();
@@ -162,13 +154,9 @@ public sealed class FfmpegRealBinarySmokeTests : IDisposable
         Assert.InRange(durations.Video!.Value.TotalSeconds, 2.5, 3.5);
     }
 
-    [Fact]
+    [RequiresRealFfmpegFact]
     public async Task Composes_real_media_and_returns_an_asset_uri()
     {
-        if (!Enabled)
-        {
-            return;
-        }
 
         GenerateVideo(seconds: 4);
         GenerateAudio(seconds: 4);
@@ -206,13 +194,9 @@ public sealed class FfmpegRealBinarySmokeTests : IDisposable
         Assert.NotNull(durations.Audio);
     }
 
-    [Fact]
+    [RequiresRealFfmpegFact]
     public async Task Refuses_a_traversal_before_reaching_ffmpeg()
     {
-        if (!Enabled)
-        {
-            return;
-        }
 
         GenerateVideo();
         var options = CreateOptions();
