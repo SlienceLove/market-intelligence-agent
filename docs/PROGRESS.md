@@ -4,16 +4,16 @@
 > 依据:《智能体项目开发流程计划》(2026-08-03 启动,预计 2026-09-18 完成整体联调,共 7 周)。
 > 详细实施计划见 `docs/superpowers/plans/` 下对应阶段文件;本文件只记录状态,不重复计划细节。
 
-**最后更新:2026-08-07**
+**最后更新:2026-08-10**
 
 ## 总体进度
 
 | 阶段 | 时间范围 | 状态 | 计划文档 |
 |---|---|---|---|
 | 阶段零:.NET 扩展服务基座 | 2026-07-31(先行完成) | ✅ 已完成 | `docs/superpowers/plans/2026-07-31-dotnet-agent-foundation.md` |
-| 阶段一:基础环境搭建 | 08-03 ~ 08-07 | 🔧 进行中 | `docs/superpowers/plans/2026-08-03-phase1-infrastructure-setup.md` |
+| 阶段一:基础环境搭建 | 08-03 ~ 08-07 | ✅ 已完成 | `docs/superpowers/plans/2026-08-03-phase1-infrastructure-setup.md` |
 | 阶段二:工作流编排与知识库运营 | 08-10 ~ 08-14 | 🔄 进行中 | `docs/superpowers/plans/2026-08-05-phase2-workflow-and-knowledge-ops.md` |
-| 阶段三:内容生成能力接入 | 08-17 ~ 08-21 | 🔧 进行中 | `docs/superpowers/plans/2026-08-06-phase3-content-generation.md` |
+| 阶段三:内容生成能力接入 | 08-17 ~ 08-21 | ✅ 已完成 | `docs/superpowers/plans/2026-08-06-phase3-content-generation.md` |
 | 阶段四:多模态自研模块开发 | 08-24 ~ 09-04 | 🔧 进行中 | `docs/superpowers/plans/2026-08-07-phase4-multimodal-modules.md` |
 | 阶段五:招投标采集与整体联调 | 09-07 ~ 09-18 | ⬜ 未开始 | 待创建 |
 
@@ -45,7 +45,7 @@
 | 联网搜索插件接入与调试 | 08-05 | ✅ 已完成 | Tavily 插件已安装并配置;通过 Workflow 冒烟测试成功返回中国工业自动化市场趋势结果;优化后 LLM 耗时约 5.8 秒、输出已精简 |
 | IMA 笔记同步至 Dify 高优先级知识库流程打通 | 08-06~08-07 | ⏭️ 暂缓 | 按当前安排先跳过,不阻塞阶段二;后续恢复时直接导入 `.md`、Word `.doc/.docx` 或 `.pdf` 文件;阶段二验证沿用已导入的 5 份市场部正式资料 |
 
-**阻塞/风险:** 当前无部署阻塞;阶段二路由验证版已发布;5 份 P1 正式资料、空 P3 降级和 Tavily 分支均已验证;`行业与市场研究` 当前为 0 文件,因此 P2 正向命中只能待真实资料进入后补测;阶段二发布验收时曾因 LLM channel 不可用采用证据直出,2026-08-06 阶段三已用可用文本模型完成独立 Workflow smoke test;当前未发现文生图工具;IMA 笔记联通暂缓且不阻塞后续阶段
+**阻塞/风险:** 当前无代码构建阻塞;阶段二路由验证版已发布;5 份 P1 正式资料、空 P3 降级和 Tavily 分支均已验证;`行业与市场研究` 当前为 0 文件,因此 P2 正向命中只能待真实资料进入后补测;阶段二发布验收时曾因 LLM channel 不可用采用证据直出,2026-08-06 阶段三已用可用文本模型完成独立 Workflow smoke test;文生图已通过独立 API2img Workflow 验证;IMA 笔记联通暂缓且不阻塞后续阶段
 **网络问题记录:** Docker Hub 直连出现 443 超时/connection refused,已通过 Docker 镜像加速恢复;复用步骤见 [`docs/ops/network-troubleshooting.md`](ops/network-troubleshooting.md)。
 
 ---
@@ -87,11 +87,12 @@
 
 | 任务 | 目标日期 | 状态 | 备注 |
 |---|---|---|---|
-| 视频号链接采集模块开发 | 08-24~08-26 | 🔧 进行中 | 已完成授权来源 URL 策略、fake collector、幂等/取消/拒绝路径 contract test;下一步才接受控 HTTP adapter;仅处理授权来源,不绕过登录、验证码或反爬策略 |
-| ASR 语音转文字模块开发与对接 | 08-27~08-28 | 🔧 进行中 | 已完成转写输入约束、时间轴归一化和 fake adapter contract test;首选本地 `faster-whisper`，云 ASR 作为授权后的备选，OpenAI 仅作质量基准;真实 provider HTTP adapter 仍待确认 |
-| OCR 截图文字识别模块开发与对接 | 08-31 | ⏳ 已排期未开始 | 先完成帧采样、去重、坐标和置信度契约 |
-| TTS 语音合成服务搭建 | 09-01~09-02 | ⏳ 已排期未开始 | 凭据、声音权限和数据留存需单独确认 |
-| 视频合成服务开发与音画同步调试 | 09-03~09-04 | ⏳ 已排期未开始 | 使用受控 FFmpeg runner,无工具时不伪造真实合成成功 |
+| 视频号链接采集模块开发 | 08-24~08-26 | ✅ 已完成 | 已完成 allowlist、端口/重定向/大小/超时/媒体类型限制、受控 HTTP adapter、幂等和稳定错误码；仅本地 mock HTTP 验证,未访问真实平台 |
+| ASR 语音转文字模块开发与对接 | 08-27~08-28 | ✅ 已完成（本地 sidecar smoke） | 已完成 provider-neutral HTTP adapter、请求/响应规范化、有限重试、超时/取消和离线 contract test；`faster-whisper/base` CPU `int8` 已通过受限本地 sidecar、API 与队列全链路 smoke，真实部署和授权真人语料验收仍是后续项，见 [`media-model-benchmark.md`](ops/media-model-benchmark.md) 与 [`local-media-sidecars.md`](ops/local-media-sidecars.md) |
+| OCR 截图文字识别模块开发与对接 | 08-31 | ✅ 已完成（本地 sidecar smoke） | 已完成帧结果模型、排序/去重/置信度裁剪、fake service 和清理边界；RapidOCR / PaddleOCR ONNX 单图片 sidecar 已通过 API 与队列全链路 smoke；视频帧采样边界已定义，授权视频帧验收仍是后续项，见 [`media-model-benchmark.md`](ops/media-model-benchmark.md) 与 [`local-media-sidecars.md`](ops/local-media-sidecars.md) |
+| TTS 语音合成服务搭建 | 09-01~09-02 | 🔧 进行中（本地基准已完成） | 已完成声音/语言 allowlist、文本切分、长度/时长限制和 fake service；sherpa-onnx 中文 VITS 已跑通，当前候选仍待音色商业授权、人工试听和 sidecar 接入，见 [`media-model-benchmark.md`](ops/media-model-benchmark.md) |
+| 视频合成服务开发与音画同步调试 | 09-03~09-04 | 🔧 进行中 | 已完成受控 FFmpeg 参数构建、fake process runner、取消/失败边界和资产引用；FFmpeg 已在用户范围安装并完成抽帧 smoke，真实音画合成仍待授权音频验证 |
+| API/Worker 作业入口与 Dify 调用边界 | 08-10 | ✅ 已完成（本地） | 已提供受理/查询/取消、服务间 API key、幂等和有界内存队列；生产持久化队列/状态恢复仍需单独部署 |
 
 ---
 
@@ -150,6 +151,13 @@
 | 2026-08-07 | 阶段四 M4-01 补充 fake collector：模拟授权来源成功、幂等重试和取消，不发起网络请求；非法来源在采集前失败且不返回资产。 |
 | 2026-08-07 | 阶段四 M4-02 开始执行：新增音频/视频输入限制、时间轴排序与重叠修正、置信度裁剪、空转写和文本长度限制；fake ASR 测试通过，未接入真实 provider。 |
 | 2026-08-07 | ASR provider 方案登记：默认优先本地 `faster-whisper` 以控制隐私和长期成本；阿里云/腾讯云/火山引擎 ASR 作为国内云备选；OpenAI transcription 仅用于独立质量对照，不在业务层写死模型或凭据。 |
+| 2026-08-10 | 按推荐顺序并行推进 M4-00/M4-01/M4-02：补齐 Accepted/Running 作业生命周期、失败分类与输入边界；完成受控 HTTP 采集 adapter、ASR HTTP adapter 及离线 contract tests；HTTP provider 默认关闭，配置缺失时返回 `provider_not_configured`。 |
+| 2026-08-10 | 完成 OCR/TTS/FFmpeg 的应用层契约、fake 边界和安全测试；新增内存有界作业协调器与 `/api/media/jobs` 受理/查询/取消接口，启用服务间 API key 鉴权；fake 全链路与全量 `dotnet test` 通过 55 项。 |
+| 2026-08-10 | 按 ASR → OCR → TTS 顺序完成无云授权的本地真实模型验证：`faster-whisper/base` CPU `int8`、RapidOCR / PaddleOCR ONNX 与 sherpa-onnx 中文 VITS 均跑通；ASR/OCR 可进入本地 PoC，TTS 的 `zh-ll` 候选优于轻量 AISHELL3 smoke 模型但仍待音色授权和人工质量验收。详细指标、成本与许可证边界见 [`docs/ops/media-model-benchmark.md`](ops/media-model-benchmark.md)。 |
+| 2026-08-10 | 完成本地 faster-whisper ASR sidecar：仅监听回环地址，只读取映射到 `temp://media/` 的受控根目录，支持服务间 API key、请求/输入上限和单并发；路径隔离单测及 API → 队列 → HTTP adapter → sidecar 的真实 smoke 均通过。运行手册见 [`docs/ops/local-media-sidecars.md`](ops/local-media-sidecars.md)。 |
+| 2026-08-10 | 完成 RapidOCR OCR sidecar：仅接受受控 `temp://media/` 图片资源，返回时间戳、坐标框、语言和置信度；路径隔离、服务间鉴权、真实截图识别及 API → 队列 → HTTP adapter → sidecar 全链路 smoke 通过。当前不在 sidecar 内抽取视频帧。 |
+| 2026-08-10 | 完成视频帧采样边界：新增 `IVideoFrameSampler`、采样选项和受控 FFmpeg 参数构造；限制采样间隔、最大帧数、最大时长和超时，拒绝非视频、非 `asset://`/`fixture://` 输入及路径穿越；4 项契约测试和全量 63 项 .NET 测试通过。当前机器未安装 FFmpeg，真实视频抽取 smoke 待环境具备后执行。 |
+| 2026-08-10 | 通过用户范围 `Gyan.FFmpeg.Essentials 8.1.1` 完成真实抽帧验证：本地合成 3 秒视频抽取 3 张 JPEG，并送入 RapidOCR sidecar；OCR 返回 3 个文本框，最低置信度 `0.7991`。模型、视频和图片均保存在仓库外临时目录。 |
 
 ---
 
