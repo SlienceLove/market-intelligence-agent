@@ -1,8 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using MarketIntelligence.Agent.Application.Bidding;
 using MarketIntelligence.Agent.Application.Media;
 using MarketIntelligence.Agent.Application.Images;
+using MarketIntelligence.Agent.Application.Notifications;
 using MarketIntelligence.Agent.Infrastructure.Images;
 using MarketIntelligence.Agent.Infrastructure.Media;
+using MarketIntelligence.Agent.Infrastructure.Notifications;
 
 namespace MarketIntelligence.Agent.Infrastructure;
 
@@ -41,6 +44,25 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IMediaProbe, FfprobeMediaProbe>();
         services.AddSingleton<IVideoFrameSampler, FfmpegVideoFrameSampler>();
         services.AddSingleton<IVideoCompositionService, FfmpegVideoCompositionService>();
+        AddNotifications(services);
         return services;
+    }
+
+    /// <summary>
+    /// Registers the real push channels under their plan channel keys. Both are
+    /// registered unconditionally because each reports <c>IsConfigured == false</c>
+    /// and returns <c>notification_not_configured</c> when its section is absent, and
+    /// <see cref="NotificationOptions"/> defaults to <c>Enabled = false</c> with
+    /// <c>DryRun = true</c>: a host that configures nothing cannot send.
+    /// </summary>
+    private static void AddNotifications(IServiceCollection services)
+    {
+        services.AddOptions<NotificationOptions>().BindConfiguration("Notifications");
+        services.AddHttpClient();
+
+        services.AddKeyedSingleton<INotificationChannel, SmtpNotificationChannel>(
+            ScheduledNotificationChannels.Smtp);
+        services.AddKeyedSingleton<INotificationChannel, WebhookNotificationChannel>(
+            ScheduledNotificationChannels.Webhook);
     }
 }
