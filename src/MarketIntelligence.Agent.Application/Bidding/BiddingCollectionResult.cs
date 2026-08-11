@@ -25,15 +25,22 @@ public sealed record BiddingCollectionResult
 
     public bool IsTerminal => Status != BiddingCollectionStatus.Running;
 
+    /// <summary>
+    /// Builds a successful result. Pass <paramref name="maxResults"/> instead of
+    /// truncating beforehand: the cap must be applied after deduplication and
+    /// ordering, or duplicates consume slots and hide distinct notices behind
+    /// them. Collectors that trim first will silently drop real results.
+    /// </summary>
     public static BiddingCollectionResult Success(
         string collectionId,
         IReadOnlyList<BiddingNotice> notices,
-        string? correlationId = null) =>
+        string? correlationId = null,
+        int? maxResults = null) =>
         new()
         {
             CollectionId = collectionId,
             Status = BiddingCollectionStatus.Succeeded,
-            Notices = Normalize(notices),
+            Notices = Normalize(notices, maxResults),
             CorrelationId = correlationId
         };
 
@@ -73,7 +80,9 @@ public sealed record BiddingCollectionResult
     /// keyword queries against the same platform routinely overlap, so the first
     /// occurrence of each fingerprint wins and the rest are dropped.
     /// </summary>
-    private static IReadOnlyList<BiddingNotice> Normalize(IReadOnlyList<BiddingNotice>? notices)
+    private static IReadOnlyList<BiddingNotice> Normalize(
+        IReadOnlyList<BiddingNotice>? notices,
+        int? maxResults)
     {
         if (notices is null || notices.Count == 0)
         {
@@ -91,8 +100,23 @@ public sealed record BiddingCollectionResult
             }
         }
 
-        deduplicated.Sort(static (left, right) => right.PublishedAt.CompareTo(left.PublishedAt));
-        return deduplicated;
+        // Newest first, with the fingerprint as tiebreaker so equal timestamps
+        // still produce a stable order across runs.
+        deduplicated.Sort(static (left, right) =>
+        {
+            var byRecency = right.PublishedAt.CompareTo(left.PublishedAt);
+            return byRecency != 0
+                ? byRecency
+                : string.CompareOrdinal(left.Fingerprint, right.Fingerprint);
+        });
+
+        var cap = maxResults is > 0
+            ? Math.Min(maxResults.Value, BiddingContractLimits.MaxResultsCeiling)
+            : BiddingContractLimits.MaxResultsCeiling;
+
+        return deduplicated.Count > cap
+            ? deduplicated.GetRange(0, cap)
+            : deduplicated;
     }
 
     public string? Validate()

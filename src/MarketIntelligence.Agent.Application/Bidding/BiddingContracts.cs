@@ -91,7 +91,14 @@ public static class BiddingFailureCatalog
             ["invalid_notice_fingerprint"] = BiddingFailureCategory.Validation,
             ["invalid_source_platform"] = BiddingFailureCategory.Validation,
             ["unsafe_notice_url"] = BiddingFailureCategory.Security,
+            ["personal_data_detected"] = BiddingFailureCategory.Security,
             ["bidding_source_not_configured"] = BiddingFailureCategory.ProviderUnavailable,
+            // Registered so the Media-style spelling classifies rather than
+            // falling through to the heuristic. Both are permanent, not transient.
+            ["provider_not_configured"] = BiddingFailureCategory.ProviderUnavailable,
+            ["notification_not_configured"] = BiddingFailureCategory.ProviderUnavailable,
+            ["notification_rejected"] = BiddingFailureCategory.ProviderUnavailable,
+            ["duplicate_notice_suppressed"] = BiddingFailureCategory.EmptyResult,
             ["bidding_source_not_allowed"] = BiddingFailureCategory.Authorization,
             ["robots_disallowed"] = BiddingFailureCategory.Authorization,
             ["unauthorized"] = BiddingFailureCategory.Authorization,
@@ -169,17 +176,41 @@ public static class BiddingFailureCatalog
     }
 
     /// <summary>
-    /// A not-configured provider is deliberately non-retryable: retrying cannot
-    /// make configuration appear, and retry loops would mask the real cause.
+    /// Decides whether retrying a failure could plausibly succeed.
     /// </summary>
+    /// <remarks>
+    /// Fails closed on two counts. Any <c>*_not_configured</c> code is
+    /// non-retryable, because retrying cannot make configuration appear and a
+    /// retry loop would mask the real cause — this covers the Media-style
+    /// <c>provider_not_configured</c> spelling and any future variant, not just
+    /// the one bidding code. And an unregistered code is non-retryable even when
+    /// the heuristic in <see cref="Classify"/> lands it in a retryable category,
+    /// because a code nobody registered carries no reviewed retry decision. The
+    /// wrong answer here is an infinite loop against a live platform, so the
+    /// default has to be "stop".
+    /// </remarks>
     public static bool IsRetryable(string? failureCode)
     {
-        if (string.Equals(failureCode?.Trim(), "bidding_source_not_configured", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(failureCode))
         {
             return false;
         }
 
-        return Classify(failureCode) is BiddingFailureCategory.RateLimited or
+        var normalized = failureCode.Trim();
+
+        if (normalized.Contains("not_configured", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("not_allowed", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Contains("disallowed", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (!IsRegistered(normalized))
+        {
+            return false;
+        }
+
+        return Classify(normalized) is BiddingFailureCategory.RateLimited or
             BiddingFailureCategory.Timeout or
             BiddingFailureCategory.ProviderUnavailable or
             BiddingFailureCategory.Transient;

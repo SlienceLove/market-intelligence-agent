@@ -94,6 +94,13 @@ public sealed record BiddingCollectionRequest
         return null;
     }
 
+    /// <summary>
+    /// A window is either absent entirely or fully specified. Allowing one open
+    /// end would let <c>FromDate = 1900-01-01, ToDate = null</c> past the 365-day
+    /// ceiling and make a real collector page an unbounded source history before
+    /// the result cap ever applied. Requiring both ends keeps the bound checkable
+    /// here, without a clock, before any provider is contacted.
+    /// </summary>
     private string? ValidateTimeWindow()
     {
         if (FromDate is null && ToDate is null)
@@ -101,19 +108,18 @@ public sealed record BiddingCollectionRequest
             return null;
         }
 
-        if (FromDate is not null && ToDate is not null)
+        if (FromDate is null || ToDate is null)
         {
-            if (ToDate < FromDate)
-            {
-                return "invalid_time_window";
-            }
-
-            if (ToDate - FromDate > BiddingContractLimits.MaxTimeWindow)
-            {
-                return "invalid_time_window";
-            }
+            return "invalid_time_window";
         }
 
-        return null;
+        if (ToDate < FromDate)
+        {
+            return "invalid_time_window";
+        }
+
+        return ToDate - FromDate > BiddingContractLimits.MaxTimeWindow
+            ? "invalid_time_window"
+            : null;
     }
 }

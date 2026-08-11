@@ -63,9 +63,10 @@ public sealed class FakeBiddingNoticeCollector : IBiddingNoticeCollector
             matched.AddRange(Synthesize(keyword));
         }
 
+        // No Take() here: the cap belongs after dedupe and ordering, so it is
+        // handed to Success rather than applied to the raw matched set.
         var filtered = matched
             .Where(notice => InWindow(notice, request))
-            .Take(request.MaxResults)
             .ToList();
 
         return filtered.Count == 0
@@ -74,7 +75,11 @@ public sealed class FakeBiddingNoticeCollector : IBiddingNoticeCollector
                 "empty_collection_result",
                 "No notice matched the supplied keywords.",
                 request.CorrelationId)
-            : BiddingCollectionResult.Success(request.CollectionId, filtered, request.CorrelationId);
+            : BiddingCollectionResult.Success(
+                request.CollectionId,
+                filtered,
+                request.CorrelationId,
+                request.MaxResults);
     }
 
     private IEnumerable<BiddingNotice> MatchCatalog(string keyword) =>

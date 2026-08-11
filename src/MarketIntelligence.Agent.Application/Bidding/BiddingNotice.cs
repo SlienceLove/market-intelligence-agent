@@ -2,10 +2,25 @@ namespace MarketIntelligence.Agent.Application.Bidding;
 
 /// <summary>
 /// A single public bidding notice, reduced to the fields the compliance boundary
-/// permits. Contact names, phone numbers and e-mail addresses are deliberately
-/// absent: docs/ops/bidding-collection-compliance.md forbids collecting personal
-/// information, so there is no field here for a parser to put it in.
+/// in docs/ops/bidding-collection-compliance.md permits.
 /// </summary>
+/// <remarks>
+/// <para>
+/// The no-PII rule is enforced two ways, and it is worth being precise about
+/// which is which. Structurally, there is no contact-name, phone, or e-mail
+/// property, so a parser has nowhere to put such a value. Mechanically,
+/// <see cref="Validate"/> rejects a notice whose retained free text or URL
+/// contains a mainland phone number, an e-mail address, or a resident ID number,
+/// because a parser can otherwise smuggle those into <see cref="Title"/> or
+/// <see cref="Publisher"/>.
+/// </para>
+/// <para>
+/// What neither mechanism catches is a bare personal name: "张三" and
+/// "张三采购中心" are not mechanically separable, so an organisation field holding
+/// a natural person's name still depends on parser discipline. That residual gap
+/// is real and is not claimed to be closed here.
+/// </para>
+/// </remarks>
 public sealed record BiddingNotice
 {
     public required string Title { get; init; }
@@ -82,7 +97,16 @@ public sealed record BiddingNotice
             return "invalid_notice";
         }
 
-        return ValidateUrl();
+        var urlFailure = ValidateUrl();
+        if (urlFailure is not null)
+        {
+            return urlFailure;
+        }
+
+        return BiddingPersonalDataGuard.ContainsPersonalData(
+            Title, Publisher, Region, Industry, AmountRange, NoticeUrl)
+            ? "personal_data_detected"
+            : null;
     }
 
     /// <summary>

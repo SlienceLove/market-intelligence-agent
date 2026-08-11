@@ -16,18 +16,44 @@ namespace MarketIntelligence.Agent.Application.Bidding;
 /// </summary>
 public static class BiddingNoticeFingerprint
 {
-    /// <summary>Query parameters that identify a listing view rather than the notice itself.</summary>
+    /// <summary>
+    /// Query parameters dropped before hashing because they identify a listing
+    /// view or a tracking campaign rather than the notice itself.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately conservative. The two failure modes are not symmetric: an
+    /// unstable fingerprint re-pushes a notice, which is visible and recoverable,
+    /// while a colliding fingerprint suppresses a distinct notice silently and
+    /// permanently once the ledger has recorded it. So a key is dropped only when
+    /// it is near-certainly non-identity. Notably absent are <c>p</c>,
+    /// <c>index</c>, and <c>from</c>: <c>p</c> is the canonical post identifier on
+    /// WordPress-style sites, and the other two are equally often a record index
+    /// or a date-range bound. Platform adapters that know their own URL scheme
+    /// pass extra keys through <paramref name="additionalVolatileKeys"/> on
+    /// <see cref="Compute(string, string, string, IReadOnlyCollection{string})"/>.
+    /// </remarks>
     private static readonly string[] VolatileQueryKeys =
     [
-        "page", "pageno", "pageindex", "pagesize", "p", "index",
+        "page", "pageno", "pageindex", "pagesize",
         "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
-        "from", "ref", "referrer", "spm", "timestamp", "ts", "_", "rnd", "random"
+        "ref", "referrer", "spm", "timestamp", "ts", "_", "rnd", "random"
     ];
 
-    public static string Compute(string sourcePlatform, string noticeUrl, string title)
+    public static string Compute(string sourcePlatform, string noticeUrl, string title) =>
+        Compute(sourcePlatform, noticeUrl, title, additionalVolatileKeys: null);
+
+    /// <summary>
+    /// Computes a notice fingerprint, additionally dropping query keys that the
+    /// calling platform adapter knows to be non-identity for its own URL scheme.
+    /// </summary>
+    public static string Compute(
+        string sourcePlatform,
+        string noticeUrl,
+        string title,
+        IReadOnlyCollection<string>? additionalVolatileKeys)
     {
         var platform = NormalizePlatform(sourcePlatform);
-        var url = NormalizeUrl(noticeUrl);
+        var url = NormalizeUrl(noticeUrl, additionalVolatileKeys);
         var normalizedTitle = NormalizeTitle(title);
 
         // The separator is a character that cannot appear in any normalized part,
@@ -69,7 +95,9 @@ public static class BiddingNoticeFingerprint
     /// no fragment, and volatile query parameters removed. Remaining parameters
     /// are sorted so ordering differences do not change the fingerprint.
     /// </summary>
-    private static string NormalizeUrl(string? noticeUrl)
+    private static string NormalizeUrl(
+        string? noticeUrl,
+        IReadOnlyCollection<string>? additionalVolatileKeys)
     {
         if (string.IsNullOrWhiteSpace(noticeUrl))
         {
@@ -108,7 +136,7 @@ public static class BiddingNoticeFingerprint
 
         builder.Append(path);
 
-        var stableQuery = BuildStableQuery(uri.Query);
+        var stableQuery = BuildStableQuery(uri.Query, additionalVolatileKeys);
         if (stableQuery.Length > 0)
         {
             builder.Append('?').Append(stableQuery);
@@ -117,11 +145,25 @@ public static class BiddingNoticeFingerprint
         return builder.ToString();
     }
 
-    private static string BuildStableQuery(string query)
+    private static string BuildStableQuery(
+        string query,
+        IReadOnlyCollection<string>? additionalVolatileKeys)
     {
         if (string.IsNullOrEmpty(query) || query == "?")
         {
             return string.Empty;
+        }
+
+        var volatileKeys = new HashSet<string>(VolatileQueryKeys, StringComparer.OrdinalIgnoreCase);
+        if (additionalVolatileKeys is not null)
+        {
+            foreach (var key in additionalVolatileKeys)
+            {
+                if (!string.IsNullOrWhiteSpace(key))
+                {
+                    volatileKeys.Add(key.Trim());
+                }
+            }
         }
 
         var pairs = query.TrimStart('?')
@@ -134,7 +176,7 @@ public static class BiddingNoticeFingerprint
                 return (Key: key.Trim().ToLowerInvariant(), Value: value.Trim());
             })
             .Where(pair => pair.Key.Length > 0)
-            .Where(pair => !VolatileQueryKeys.Contains(pair.Key, StringComparer.Ordinal))
+            .Where(pair => !volatileKeys.Contains(pair.Key))
             .OrderBy(pair => pair.Key, StringComparer.Ordinal)
             .ThenBy(pair => pair.Value, StringComparer.Ordinal)
             .Select(pair => pair.Value.Length == 0 ? pair.Key : $"{pair.Key}={pair.Value}");

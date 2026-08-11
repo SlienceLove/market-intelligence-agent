@@ -65,6 +65,17 @@ public sealed class BiddingContractsTests
                 FromDate = from,
                 ToDate = from.Add(BiddingContractLimits.MaxTimeWindow).AddDays(1)
             }).Validate());
+
+        // One open end would slip past the ceiling entirely: a 1900 start with no
+        // end is an unbounded history walk that the result cap does not prevent.
+        Assert.Equal("invalid_time_window", (ValidRequest() with { FromDate = from }).Validate());
+        Assert.Equal("invalid_time_window", (ValidRequest() with { ToDate = from }).Validate());
+        Assert.Equal(
+            "invalid_time_window",
+            (ValidRequest() with { FromDate = new DateTimeOffset(1900, 1, 1, 0, 0, 0, TimeSpan.Zero) }).Validate());
+
+        // Omitting the window entirely stays valid.
+        Assert.Null((ValidRequest() with { FromDate = null, ToDate = null }).Validate());
     }
 
     [Fact]
@@ -176,6 +187,119 @@ public sealed class BiddingContractsTests
     }
 
     [Fact]
+    public void Fingerprint_preserves_query_keys_that_may_carry_notice_identity()
+    {
+        const string platform = "ccgp.gov.cn";
+        const string title = "招标公告";
+
+        // p is the canonical post id on WordPress-style sites; index and from are
+        // equally often a record index or a date bound. Dropping them would let two
+        // distinct notices collapse onto one ledger identity.
+        foreach (var key in new[] { "p", "index", "from", "id", "noticeid" })
+        {
+            Assert.NotEqual(
+                BiddingNoticeFingerprint.Compute(platform, $"https://ccgp.gov.cn/notice?{key}=101", title),
+                BiddingNoticeFingerprint.Compute(platform, $"https://ccgp.gov.cn/notice?{key}=102", title));
+        }
+
+        // Paging and tracking keys stay volatile.
+        foreach (var key in new[] { "page", "pagesize", "utm_source", "spm", "ts", "_", "rnd" })
+        {
+            Assert.Equal(
+                BiddingNoticeFingerprint.Compute(platform, "https://ccgp.gov.cn/notice?id=7", title),
+                BiddingNoticeFingerprint.Compute(platform, $"https://ccgp.gov.cn/notice?id=7&{key}=99", title));
+        }
+    }
+
+    [Fact]
+    public void Fingerprint_accepts_platform_specific_volatile_keys_without_loosening_the_default()
+    {
+        const string platform = "example.gov.cn";
+        const string title = "招标公告";
+        const string withKey = "https://example.gov.cn/notice?id=7&view=grid";
+
+        var strict = BiddingNoticeFingerprint.Compute(platform, withKey, title);
+        var baseline = BiddingNoticeFingerprint.Compute(platform, "https://example.gov.cn/notice?id=7", title);
+
+        Assert.NotEqual(baseline, strict);
+        Assert.Equal(baseline, BiddingNoticeFingerprint.Compute(platform, withKey, title, ["view"]));
+
+        // An adapter opting a key out must not affect identity-bearing keys.
+        Assert.NotEqual(
+            BiddingNoticeFingerprint.Compute(platform, "https://example.gov.cn/notice?id=8", title, ["view"]),
+            BiddingNoticeFingerprint.Compute(platform, "https://example.gov.cn/notice?id=9", title, ["view"]));
+    }
+
+    [Fact]
+    public void Notice_validation_rejects_personal_data_smuggled_into_free_text()
+    {
+        Assert.Equal("personal_data_detected", (ValidNotice() with { Title = "招标公告 联系 13812345678" }).Validate());
+        Assert.Equal("personal_data_detected", (ValidNotice() with { Publisher = "采购中心 010-12345678" }).Validate());
+        Assert.Equal("personal_data_detected", (ValidNotice() with { Region = "江苏 a.b@example.com" }).Validate());
+        Assert.Equal("personal_data_detected", (ValidNotice() with { Industry = "110101199001011234" }).Validate());
+        Assert.Equal(
+            "personal_data_detected",
+            (ValidNotice() with { NoticeUrl = "https://www.ccgp.gov.cn/n?mail=a.b@example.com" }).Validate());
+
+        Assert.Equal(BiddingFailureCategory.Security, BiddingFailureCatalog.Classify("personal_data_detected"));
+
+        // Amounts, project codes, and years must not trip the guard.
+        Assert.Null((ValidNotice() with { AmountRange = "1000000-5000000" }).Validate());
+        Assert.Null((ValidNotice() with { Title = "2026 年度智慧园区项目 编号 JS20260811001" }).Validate());
+        Assert.Null((ValidNotice() with { Publisher = "某市公共资源交易中心" }).Validate());
+    }
+
+    [Fact]
+    public void Retryability_fails_closed_for_configuration_gaps_and_unregistered_codes()
+    {
+        // The Media-style spelling is permanent too; only the bidding-specific
+        // code used to be special-cased, so this variant retried forever.
+        Assert.False(BiddingFailureCatalog.IsRetryable("provider_not_configured"));
+        Assert.False(BiddingFailureCatalog.IsRetryable("notification_not_configured"));
+        Assert.False(BiddingFailureCatalog.IsRetryable("some_future_not_configured"));
+        Assert.False(BiddingFailureCatalog.IsRetryable("bidding_source_not_allowed"));
+
+        // An unregistered code carries no reviewed retry decision, even when the
+        // heuristic would land it in a retryable category.
+        Assert.Equal(BiddingFailureCategory.Timeout, BiddingFailureCatalog.Classify("gateway_timeout"));
+        Assert.False(BiddingFailureCatalog.IsRetryable("gateway_timeout"));
+        Assert.False(BiddingFailureCatalog.IsRetryable(null));
+
+        Assert.True(BiddingFailureCatalog.IsRetryable("rate_limited"));
+        Assert.True(BiddingFailureCatalog.IsRetryable("timeout"));
+        Assert.True(BiddingFailureCatalog.IsRetryable("transient_provider_failure"));
+    }
+
+    [Fact]
+    public void Result_applies_the_cap_after_deduplication_so_duplicates_cannot_hide_distinct_notices()
+    {
+        var x = ValidNotice(
+            title: "重复公告",
+            url: "https://www.ccgp.gov.cn/notice/x.htm",
+            publishedAt: new DateTimeOffset(2026, 8, 9, 0, 0, 0, TimeSpan.Zero));
+        var y = ValidNotice(
+            title: "唯一公告",
+            url: "https://www.ccgp.gov.cn/notice/y.htm",
+            publishedAt: new DateTimeOffset(2026, 8, 8, 0, 0, 0, TimeSpan.Zero));
+
+        var result = BiddingCollectionResult.Success("collect-1", [x, x, y], maxResults: 2);
+
+        Assert.Equal(2, result.Notices.Count);
+        Assert.Contains(result.Notices, notice => notice.Title == "唯一公告");
+
+        // The cap can never exceed the compliance ceiling, whatever a caller asks.
+        var many = Enumerable.Range(0, BiddingContractLimits.MaxResultsCeiling + 20)
+            .Select(index => ValidNotice(
+                title: $"公告 {index}",
+                url: $"https://www.ccgp.gov.cn/notice/{index}.htm"))
+            .ToArray();
+
+        var capped = BiddingCollectionResult.Success("collect-1", many, maxResults: int.MaxValue);
+        Assert.Equal(BiddingContractLimits.MaxResultsCeiling, capped.Notices.Count);
+        Assert.Null(capped.Validate());
+    }
+
+    [Fact]
     public void Every_code_the_validators_emit_is_registered_in_the_catalog()
     {
         // An unregistered code classifies as Unknown and loses its retry policy,
@@ -189,6 +313,8 @@ public sealed class BiddingContractsTests
             "invalid_notice_fingerprint", "invalid_status", "failure_code_required",
             "notice_limit_exceeded", "invalid_request", "empty_collection_result",
             "bidding_source_not_configured", "bidding_source_not_allowed", "robots_disallowed",
+            "personal_data_detected", "provider_not_configured", "notification_not_configured",
+            "notification_rejected", "duplicate_notice_suppressed",
             "cancelled", "internal_error"
         };
 
