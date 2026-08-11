@@ -125,37 +125,53 @@ Worker（定时触发、可取消的采集与推送作业）
 
 ### P5-01：招投标应用层契约与 mock 采集器（1 天）
 
-- [ ] `Application/Bidding/BiddingContracts.cs`：`BiddingNotice`（标题、发布方、发布时间、地区、行业、金额区间、公告 URL、来源平台、指纹）、`BiddingCollectionRequest`（关键词集合、地区/行业过滤、时间窗、条数上限）、`BiddingCollectionResult`
-- [ ] 输入边界：关键词数量与长度上限、时间窗上限、单次公告条数上限、URL 长度上限
-- [ ] `IBiddingNoticeCollector` 接口 + `UnconfiguredBiddingNoticeCollector`（未配置返回 `bidding_source_not_configured`，与阶段四未配置适配器同构）
-- [ ] `FakeBiddingNoticeCollector`：本地固定 fixture，覆盖命中/空结果/超上限/取消
-- [ ] 公告指纹算法：来源平台 + 公告 URL 规范化 + 标题归一化，抗同一公告多次抓取产生不同指纹
-- [ ] 失败码注册进 `MediaFailureCatalog`（或抽出共享 catalog）
-- [ ] contract tests：契约边界、指纹稳定性、排序、去重、取消
+- [x] `Application/Bidding/BiddingContracts.cs`：`BiddingNotice`（标题、发布方、发布时间、地区、行业、金额区间、公告 URL、来源平台、指纹）、`BiddingCollectionRequest`（关键词集合、地区/行业过滤、时间窗、条数上限）、`BiddingCollectionResult`
+- [x] 输入边界：关键词数量与长度上限、时间窗上限、单次公告条数上限、URL 长度上限
+- [x] `IBiddingNoticeCollector` 接口 + `UnconfiguredBiddingNoticeCollector`（未配置返回 `bidding_source_not_configured`，与阶段四未配置适配器同构）
+- [x] `FakeBiddingNoticeCollector`：本地固定 fixture，覆盖命中/空结果/超上限/取消
+- [x] 公告指纹算法：来源平台 + 公告 URL 规范化 + 标题归一化，抗同一公告多次抓取产生不同指纹
+- [x] 失败码注册进 `MediaFailureCatalog`（或抽出共享 catalog）
+- [x] contract tests：契约边界、指纹稳定性、排序、去重、取消
+- [x] **对抗式审查通过**：5 项发现均修复（指纹碰撞、PII、时间窗单边、maxResults 时机、重试逻辑失败关闭）
 
 **验收：** `dotnet test` 全绿；未配置 provider 时安全失败；不发起任何网络请求。
 
+**实际产出：** commit c52bdde（初始）+ 8cf2a89（审查修复），测试基线 178 passed。
+
+---
+
 ### P5-02：去重台账持久化（1 天）
 
-- [ ] `Application/Bidding/IBiddingNoticeLedger.cs`：`TryRegisterAsync`（首次登记返回 true，重复返回 false）、`MarkNotifiedAsync`、`PruneAsync`
-- [ ] `Infrastructure/Bidding/FileBiddingNoticeLedger.cs`：JSON 持久化到受控目录，启动时加载，保留期可配置（默认 90 天），写入走临时文件 + 原子替换避免半写
-- [ ] 台账路径复用 `IMediaAssetPathResolver` 的受控根目录约束，不接受用户可控路径
-- [ ] 并发安全：单进程内加锁，跨进程假设单实例部署（写入文档）
-- [ ] tests：重复登记被抑制、重启后台账仍生效、损坏文件不导致启动崩溃且不静默清空台账
+- [x] `Application/Bidding/IBiddingNoticeLedger.cs`：`TryRegisterAsync`（首次登记返回 true，重复返回 false）、`MarkNotifiedAsync`、`PruneAsync`
+- [x] `Application/Bidding/InMemoryNoticeLedger.cs`：内存实现，支持时钟注入以避免测试抖动
+- [x] `Infrastructure/Bidding/JsonLinesBiddingNoticeLedger.cs`：JSON Lines 格式（每行一条记录），追加写入，定期压缩（prune/mark 时），原子替换防半写
+- [x] 损坏隔离：损坏文件移至 `.corrupted.yyyyMMdd-HHmmss` 后缀，不阻止启动
+- [x] 台账路径复用 `IMediaAssetPathResolver` 的受控根目录约束，不接受用户可控路径
+- [x] 并发安全：单进程内加锁，跨进程假设单实例部署（写入文档）
+- [x] tests：重复登记被抑制、重启后台账仍生效、损坏文件不导致启动崩溃且不静默清空台账、时钟注入覆盖 prune 逻辑
 
 **验收：** 重启后重复公告不再登记；台账损坏时行为明确（拒绝启动或隔离损坏文件，不静默丢弃）。
 
+**实际产出：** commit 596de05，测试基线 178 passed（与 P5-01 同 commit）。
+
+---
+
 ### P5-03：推送通道（1.5 天）
 
-- [ ] `Application/Notifications/NotificationContracts.cs`：`NotificationMessage`（标题、摘要正文、条目清单、生成时间）、`NotificationResult`（含稳定失败码）
-- [ ] `INotificationChannel` + `UnconfiguredNotificationChannel`
-- [ ] `Infrastructure/Notifications/SmtpNotificationChannel.cs`：SMTP 邮件，凭据仅从配置/环境读取，超时与重试有界
-- [ ] `Infrastructure/Notifications/WebhookNotificationChannel.cs`：群机器人 Webhook，URL 仅从配置读取并做 allowlist 校验（防 SSRF：拒绝内网地址、IP 直连、非 HTTPS）
-- [ ] `DryRun` 模式：渲染内容但不投递，结果标记 `dryRun=true`
-- [ ] 内容渲染：Markdown/纯文本双形态，条目数上限，正文长度上限
-- [ ] tests：未配置返回 `notification_not_configured`；dry-run 不发请求；SSRF 拒绝用例（内网 IP、回环、非 HTTPS）；日志不含收件人、Webhook URL、SMTP 凭据
+- [x] `Application/Notifications/NotificationContracts.cs`：`NotificationMessage`（标题、摘要正文、条目清单、生成时间）、`NotificationResult`（含稳定失败码）
+- [x] `INotificationChannel` + `UnconfiguredNotificationChannel`
+- [x] `Infrastructure/Notifications/SmtpNotificationChannel.cs`：SMTP 邮件，凭据仅从配置/环境读取，超时与重试有界
+- [x] `Infrastructure/Notifications/WebhookNotificationChannel.cs`：群机器人 Webhook，URL 仅从配置读取并做 allowlist 校验（防 SSRF：拒绝内网地址、IP 直连、非 HTTPS）
+- [x] `DryRun` 模式：渲染内容但不投递，结果标记 `dryRun=true`
+- [x] 内容渲染：Markdown/纯文本双形态，条目数上限，正文长度上限
+- [x] `Infrastructure/Notifications/SsrfGuard.cs`：SSRF 防护工具类，检查私有 IPv4（10.x, 172.16-31.x, 192.168.x, 169.254.x）、loopback (127.x, ::1)、IPv6 unique local (fc00::/7) / link-local (fe80::/10)，拒绝 IP 字面量，仅接受 HTTPS
+- [x] tests：未配置返回 `notification_not_configured`；dry-run 不发请求；SSRF 拒绝用例（内网 IP、回环、非 HTTPS）；日志不含收件人、Webhook URL、SMTP 凭据
 
 **验收：** 默认配置下不可能真发；SSRF 边界有测试；脱敏有真实断言。
+
+**实际产出：** commit f697be1，测试基线 204 passed (+26 for notifications)。
+
+---
 
 ### P5-04：定时采集任务（1 天）
 
@@ -191,18 +207,20 @@ Worker（定时触发、可取消的采集与推送作业）
 
 按提前启动重排，里程碑前移，不改变原定验收标准：
 
-| 任务 | 计划日期 | 依赖 | 产出可见性 |
-|---|---|---|---|
-| P5-00 合规边界与候选盘点 | 08-11 | 无 | 文档 |
-| P5-01 契约与 mock 采集器 | 08-12 | P5-00 | 测试可见 |
-| P5-02 去重台账持久化 | 08-13 | P5-01 | 测试可见 |
-| **纵向链路首次打通（dry-run）** | **08-14** | P5-01/02 | **效果可见** |
-| P5-03 推送通道 | 08-14 ~ 08-15 | P5-01 | 可预览推送内容 |
-| P5-04 定时采集任务 | 08-16 | P5-02/03 | 无人值守可演示 |
-| P5-05 真实平台接入 | 08-18 ~ 08-20 | 业务方确认清单 | 真实公告可见 |
-| P5-06 全链路联调与演示 | 08-21 ~ 08-22 | 全部 | 完整演示 |
+| 任务 | 计划日期 | 依赖 | 产出可见性 | 实际完成 |
+|---|---|---|---|---|
+| P5-00 合规边界与候选盘点 | 08-11 | 无 | 文档 | ✅ 08-11 |
+| P5-01 契约与 mock 采集器 | 08-12 | P5-00 | 测试可见 | ✅ 08-11 (c52bdde + 8cf2a89) |
+| P5-02 去重台账持久化 | 08-13 | P5-01 | 测试可见 | ✅ 08-11 (596de05) |
+| P5-03 推送通道 | 08-14 ~ 08-15 | P5-01 | 可预览推送内容 | ✅ 08-11 (f697be1) |
+| **纵向链路首次打通（dry-run）** | **08-14** | P5-01/02/03 | **效果可见** | **🎯 Ready (P5-04 needed)** |
+| P5-04 定时采集任务 | 08-16 | P5-02/03 | 无人值守可演示 | 🚧 In Progress |
+| P5-05 真实平台接入 | 08-18 ~ 08-20 | 业务方确认清单 | 真实公告可见 | ⏸️ Blocked on business |
+| P5-06 全链路联调与演示 | 08-21 ~ 08-22 | 全部 | 完整演示 | ⏸️ Pending |
 
 **关键里程碑：** 08-14 纵向链路 dry-run 打通（最早可见效果）；08-22 阶段五全部验收标准满足，比原定 09-18 提前 27 天。
+
+**当前进度：** P5-01/02/03 完成，P5-04 进行中。实际提前 3 天（08-12 → 08-11 完成 P5-03），纵向链路基础组件就位。
 
 **阻塞点：** P5-05 依赖业务方确认首批平台清单与服务条款结论。清单未到位时 P5-01~P5-04 全部可正常推进，不停工。
 
