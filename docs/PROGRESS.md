@@ -168,7 +168,7 @@
 | 2026-08-11 | **M4-04B TTS sidecar 接入完成**（Codex 实施，Claude 独立验收）：新增 `scripts/media/tts_sidecar.py`（回环绑定、服务间 API key、`--allowed-root` 路径隔离、单并发、可插拔 placeholder/sherpa 后端）、`HttpSpeechSynthesisService`、`TtsHttpOptions`、`Media:Tts` 安全默认配置（`Enabled=false`、端点与 key 为空）与 DI 注册。.NET 测试自 140 增至 152（+10 adapter、+2 DI），Python contract test 5 项；日志脱敏有真实断言（不含口播正文与 service key）。 |
 | 2026-08-11 | **M4-05B 真实音画合成验证完成**：以 `MI_SMOKE_FFMPEG`/`MI_SMOKE_FFPROBE` 指向 `Gyan.FFmpeg.Essentials 8.1.1` 真实二进制后，原 4 项跳过的 FFmpeg smoke 全部通过（含真实合成用例），全量 **152 项通过、0 跳过**。另完成 TTS → 合成的交接验证：placeholder sidecar 两段输出经 ffprobe 确认为 `pcm_s16le`/16000 Hz/单声道，时长 1.667 s 与 1.167 s，符合合成输入规范。测试音频与临时目录已清理，未提交任何媒体文件。 |
 | 2026-08-11 | 验收过程中定位并修复两个真实缺陷：① TTS sidecar 把请求体非 UTF-8 的客户端错误经 `json.loads` 冒泡为 `synthesis_failed`/HTTP 500，改为显式 UTF-8 解码并返回 `invalid_input`/HTTP 400，补充畸形 UTF-8 用例（Python 测试 4 → 5 项）；② `ISpeechSynthesisService` 原以 Singleton 条件工厂解析瞬态 typed client，构成 captive dependency 并使 `IHttpClientFactory` 的 handler 轮换失效，改为 Transient 并补 `Assert.NotSame` 断言。原 DI 测试只断言解析类型、不断言生命周期，因此对该缺陷不敏感。 |
-| 2026-08-11 | `git push origin main` 在本环境失败：`curl https://github.com` 同样超时，判定为环境无外网出口而非 git 配置问题；main 上的提交仍待在具备 GitHub 访问的环境推送。 |
+| 2026-08-11 | `git push origin main` 一度失败（`curl https://github.com` 同样超时，判定为环境临时无外网出口而非 git 配置问题）；网络恢复后已成功推送，远端 main 现为 `de3d69f`，本地与 origin 同步。 |
 
 ---
 
