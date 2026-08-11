@@ -12,6 +12,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFrameOcrService, UnconfiguredFrameOcrService>();
         services.AddSingleton<ISpeechSynthesisService, UnconfiguredSpeechSynthesisService>();
         services.AddSingleton<IVideoCompositionService, UnconfiguredVideoCompositionService>();
+        services.AddSingleton<InMemoryMediaJobCoordinator>();
+        services.AddSingleton<IMediaJobCoordinator>(servicesProvider =>
+            servicesProvider.GetRequiredService<InMemoryMediaJobCoordinator>());
+        services.AddHostedService(servicesProvider =>
+            servicesProvider.GetRequiredService<InMemoryMediaJobCoordinator>());
         return services;
     }
 }

@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MarketIntelligence.Agent.Api\MarketIntelligence.Agent.Api.csproj" />
     <ProjectReference Include="..\..\src\MarketIntelligence.Agent.Application\MarketIntelligence.Agent.Application.csproj" />
+    <ProjectReference Include="..\..\src\MarketIntelligence.Agent.Infrastructure\MarketIntelligence.Agent.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

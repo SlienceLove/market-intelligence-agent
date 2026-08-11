@@ -10,3 +10,13 @@ data/
 /media/
 artifacts/
 .aider*
+
+# Generated media/run artifacts, not source.
+output/
+
+# Python sidecar bytecode under scripts/media/.
+__pycache__/
+*.pyc
+
+# Design documents are shared out-of-band, not version controlled.
+*.docx
