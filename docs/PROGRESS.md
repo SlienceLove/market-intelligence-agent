@@ -91,7 +91,7 @@
 | ASR 语音转文字模块开发与对接 | 08-27~08-28 | ✅ 已完成（本地 sidecar smoke） | 已完成 provider-neutral HTTP adapter、请求/响应规范化、有限重试、超时/取消和离线 contract test；`faster-whisper/base` CPU `int8` 已通过受限本地 sidecar、API 与队列全链路 smoke，真实部署和授权真人语料验收仍是后续项，见 [`media-model-benchmark.md`](ops/media-model-benchmark.md) 与 [`local-media-sidecars.md`](ops/local-media-sidecars.md) |
 | OCR 截图文字识别模块开发与对接 | 08-31 | ✅ 已完成（本地 sidecar smoke） | 已完成帧结果模型、排序/去重/置信度裁剪、fake service 和清理边界；RapidOCR / PaddleOCR ONNX 单图片 sidecar 已通过 API 与队列全链路 smoke；视频帧采样边界已定义，授权视频帧验收仍是后续项，见 [`media-model-benchmark.md`](ops/media-model-benchmark.md) 与 [`local-media-sidecars.md`](ops/local-media-sidecars.md) |
 | TTS 语音合成服务搭建 | 09-01~09-02 | 🔧 进行中（本地基准已完成） | 已完成声音/语言 allowlist、文本切分、长度/时长限制和 fake service；sherpa-onnx 中文 VITS 已跑通，当前候选仍待音色商业授权、人工试听和 sidecar 接入，见 [`media-model-benchmark.md`](ops/media-model-benchmark.md) |
-| 视频合成服务开发与音画同步调试 | 09-03~09-04 | 🔧 进行中 | 已完成受控 FFmpeg 参数构建、fake process runner、取消/失败边界和资产引用；FFmpeg 已在用户范围安装并完成抽帧 smoke，真实音画合成仍待授权音频验证 |
+| 视频合成服务开发与音画同步调试 | 09-03~09-04 | 🔧 进行中 | 已完成受控 FFmpeg 参数构建、fake process runner、取消/失败边界和资产引用；FFmpeg 已在用户范围安装并完成抽帧 smoke；M4-05a 运行时已通过功能验证（140 项测试），对抗性评审发现 2 项高风险架构问题（TOCTOU、进程树终止），已决策接受当前限制并记录约束条件（见 [`m4-05-security-constraints.md`](ops/m4-05-security-constraints.md)），分支准备合并；真实音画合成仍待授权音频验证 |
 | API/Worker 作业入口与 Dify 调用边界 | 08-10 | ✅ 已完成（本地） | 已提供受理/查询/取消、服务间 API key、幂等和有界内存队列；生产持久化队列/状态恢复仍需单独部署 |
 
 ---
@@ -163,6 +163,7 @@
 | 2026-08-10 | 修正冒烟测试门控缺陷：原早退（early return）写法在未配置 FFmpeg 时报告为“通过”，导致空转与真实验证无法区分——此前 131 通过的结果中 4 项冒烟实际 9 毫秒内未调用 FFmpeg。改用 `RequiresRealFfmpegFact` 在发现阶段设置 `Skip`，惰性状态现可见。 |
 | 2026-08-10 | `/codex:adversarial-review` 结论为 **needs-attention**（4 项：2 高 2 中），尚未验收。未修项：① 包含性对 TOCTOU 链接替换竞争仍可绕过，且分量解析异常时退化为词法检查（失败开放）；② `KillProcessTree` 丢弃 kill/reap 结果，取消后不保证子孙进程已终止；③ 帧时间戳取自 JPEG muxer 序号而非源 PTS，变帧率/非零起始 PTS 素材会算错；④ 符号链接包含性测试在无建链权限机器上静默通过。①② 的彻底修复需 OS 级进程/文件句柄约束（Windows Job Object、no-follow 描述符），属架构决策，待确认后执行。 |
 | 2026-08-10 | 修复评审 4 项中的 2 项（边界清晰、可立即修）：① 分量解析捕获 IO/UnauthorizedAccess 异常时返回原始词法路径（失败开放），改为 `TryResolveFinalPath`，解析失败即拒绝；链接环耗尽深度限制改为抛出而非返回最后一跳。② 符号链接测试在无建链能力时早退并报绿色，改为 `RequiresSymbolicLinkFact`，无能力时报跳过；补测链接环拒绝用例。另增 junction 测试 4 项——Windows 下 junction 无需特权即可创建，是比符号链接更现实的绕过路径；本机验证 `mklink /J` 在 `IsUserAnAdmin() == 0` 时成功。测试数 135 → 140（+4 符号链接 +1 环 +4 junction），全通过。剩余 2 项（真正的 TOCTOU 竞争、进程树终止保证）需 OS 原语，留待架构讨论。 |
+| 2026-08-11 | **M4-05a 风险接受决策**：评审剩余 2 项高风险问题（TOCTOU 竞争、进程树终止）需要跨平台架构改动（Windows Job Object、no-follow 文件描述符），预计耗时 5-7 天。考虑阶段四剩余 24 天需完成 TTS/音画合成/作业队列，决策接受当前实现的已知限制，在受控环境下先验证业务流程，架构加固单独排期至阶段五后。安全约束条件和适用场景见 [`docs/ops/m4-05-security-constraints.md`](ops/m4-05-security-constraints.md)。`feat/m4-05-ffmpeg-runtime` 分支准备合并到 main。 |
 
 ---
 
