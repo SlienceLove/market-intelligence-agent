@@ -47,6 +47,43 @@ public sealed class MediaServiceRegistrationTests
     }
 
     [Fact]
+    public void Resolves_the_unconfigured_speech_service_by_default()
+    {
+        using var provider = BuildProvider();
+
+        Assert.IsType<UnconfiguredSpeechSynthesisService>(provider.GetRequiredService<ISpeechSynthesisService>());
+    }
+
+    [Fact]
+    public void Resolves_the_http_speech_service_when_enabled()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Media:Tts:Enabled"] = "true",
+            ["Media:Tts:Endpoint"] = "http://127.0.0.1:8093/v1/speech-synthesis",
+            ["Media:Tts:ServiceKey"] = "test-secret",
+            ["Media:AssetRoot"] = Path.GetTempPath()
+        }).Build());
+        services.AddApplication();
+        services.AddInfrastructure();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true
+        });
+
+        var first = provider.GetRequiredService<ISpeechSynthesisService>();
+        var second = provider.GetRequiredService<ISpeechSynthesisService>();
+
+        Assert.IsType<HttpSpeechSynthesisService>(first);
+        Assert.IsType<HttpSpeechSynthesisService>(second);
+        Assert.NotSame(first, second);
+    }
+
+    [Fact]
     public void Prefers_the_real_composition_service_over_the_unconfigured_placeholder()
     {
         using var provider = BuildProvider();

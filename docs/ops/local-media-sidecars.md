@@ -88,7 +88,20 @@ Invoke-RestMethod http://127.0.0.1:8092/health
 
 ## TTS
 
-TTS 维持 PoC 状态。待选定模型的商用音色授权和人工质量验收完成后，再创建独立 sidecar；不要以 ASR 回读 CER 代替授权或试听。
+TTS sidecar 默认使用许可安全的 `placeholder` 后端，只输出显式标记为占位的 WAV 音频。待选定模型的商用音色授权和人工质量验收完成后，再切换到 `sherpa` 后端；不要以 ASR 回读 CER 代替授权或试听。
+
+启动占位后端：
+
+```powershell
+<venv-path>\Scripts\python.exe scripts\media\tts_sidecar.py `
+  --allowed-root <media-root> `
+  --host 127.0.0.1 `
+  --port 8093 `
+  --backend placeholder `
+  --api-key <service-key>
+```
+
+服务提供 `GET /health` 和 `POST /v1/speech-synthesis`。请求中的 `outputUri` 必须映射到 `temp://media/` 下的受控路径，响应会返回每段的 `durationSeconds`、`sampleRate`、`bytes`、`backend` 和 `index`，其中占位后端的 `backend` 固定为 `placeholder`。
 ## 视频帧采样
 
 视频帧抽取由上游受控采样层负责，OCR sidecar 只接受 `image/*`。应用层通过 `IVideoFrameSampler` 生成受控的 FFmpeg 请求，限制采样间隔、最大帧数、最大时长和超时，并拒绝非 `asset://`/`fixture://` 输入及路径穿越。

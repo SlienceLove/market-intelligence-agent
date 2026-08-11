@@ -55,7 +55,7 @@
 |---|---|---|---|
 | ASR | `faster-whisper/base`，CPU `int8` | 本地算力和一次模型下载；无按调用计费 | `faster-whisper` 代码包声明 MIT；转换后的模型与全部依赖的 NOTICE 需随发布物复核 |
 | OCR | `rapidocr-onnxruntime` + `ch_PP-OCRv3` ONNX | 本地算力；无按调用计费 | 运行时声明 Apache-2.0；模型来源和依赖 NOTICE 需纳入发布清单 |
-| TTS | 开发 PoC 先用 `sherpa-onnx-vits-zh-ll`，不要把 AISHELL3 作为默认旁白 | 本地算力；模型约 121 MB（`zh-ll`） | `sherpa-onnx` 代码声明 Apache-2.0，但模型、训练数据和音色权利独立；当前模型归档没有足以完成商业授权判断的许可材料 |
+| TTS | 代码链路默认使用 `placeholder` 占位后端，真实模型仅在授权确认后通过配置切换 | 本地算力；占位后端无模型依赖 | 当前模型归档没有足以完成商业授权判断的许可材料，因此业务代码不绑定任何具体模型名、模型路径或音色 ID |
 
 推荐下一步：
 
