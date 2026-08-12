@@ -14,4 +14,22 @@ public sealed record BiddingOptions
     /// or first-seen if never notified). Defaults to 90 days.
     /// </summary>
     public TimeSpan RetentionWindow { get; init; } = TimeSpan.FromDays(90);
+
+    /// <summary>
+    /// Collector rate limiting and behavior settings.
+    /// </summary>
+    public CollectorSettings Collector { get; init; } = new();
+}
+
+public sealed record CollectorSettings
+{
+    /// <summary>
+    /// Minimum seconds between requests to the same platform. Default: 2
+    /// </summary>
+    public int MinimumIntervalSeconds { get; init; } = 2;
+
+    /// <summary>
+    /// Maximum requests per second across all platforms. Default: 5
+    /// </summary>
+    public int GlobalQpsLimit { get; init; } = 5;
 }
