@@ -190,7 +190,19 @@ Worker（定时触发、可取消的采集与推送作业）
 
 **实际产出：** commit 7298b20，测试基线 245 passed / 4 skipped（+41）。默认配置下整图可解析且采集器与两个通道均 `IsConfigured == false`，即未配置无法采集也无法推送。
 
-**已知缺口（P5-06 前需补）：** `IScheduledCollectionHistory` 目前只有内存实现，**进程重启后当日幂等记录丢失**，重启后同一 (计划, 日期) 可能二次推送。公告级台账（P5-02）已持久化，可拦下重复公告，因此实际风险是"重启后可能重发一封内容相同的邮件"，而非重复推送新公告。持久化实现按 P5-02 的 JSON Lines 范式补齐后关闭此缺口。
+### P5-04a：调度历史持久化（缺口收敛）
+
+P5-04 交付时 `IScheduledCollectionHistory` 只有内存实现，进程重启后当日幂等记录丢失。已补齐：
+
+- [x] `Infrastructure/Bidding/JsonLinesScheduledCollectionHistory.cs`：与 P5-02 台账同构的 JSON Lines 持久化，占位时追加、替换/prune 时压缩、原子替换
+- [x] 重启后 `Completed` 槽位仍拦截重复推送；`Failed` 槽位仍可当日重试
+- [x] 损坏文件**失败开放**：隔离为 `.corrupted.*` 并清空内存状态。此处与台账的取向相反且是刻意的——无法证明"已推送"的槽位必须保持可占位，否则一个损坏文件会静默抑制一次从未发生的推送
+- [x] **修正 P5-02 遗漏**：`JsonLinesBiddingNoticeLedger` 当时并未注册进 DI，实际运行仍走内存实现。现按 `Bidding:LedgerRoot` 是否配置在 DI 中择一注册，两个持久化实现同时生效
+- [x] tests：占位/重入语义、重启后 `Completed` 与 `Failed` 的不同表现、重入不产生重复行、prune 保留近期记录、损坏文件失败开放、`LedgerRoot` 缺失时快速失败、DI 按配置切换实现
+
+**验收：** 重启后同一 (计划 ID, 执行日期) 不二次推送；未配置 `Bidding:LedgerRoot` 时退回内存实现且 host 仍可启动。
+
+**实际产出：** 测试基线 260 passed / 4 skipped（+15）。
 
 ### P5-05：真实平台接入（2-3 天，需业务方确认清单）
 
