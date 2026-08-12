@@ -3,6 +3,7 @@ using MarketIntelligence.Agent.Application.Bidding;
 using MarketIntelligence.Agent.Application.Media;
 using MarketIntelligence.Agent.Application.Images;
 using MarketIntelligence.Agent.Application.Notifications;
+using MarketIntelligence.Agent.Infrastructure.Bidding;
 using MarketIntelligence.Agent.Infrastructure.Images;
 using MarketIntelligence.Agent.Infrastructure.Media;
 using MarketIntelligence.Agent.Infrastructure.Notifications;
@@ -45,8 +46,37 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IVideoFrameSampler, FfmpegVideoFrameSampler>();
         services.AddSingleton<IVideoCompositionService, FfmpegVideoCompositionService>();
         AddNotifications(services);
+        AddBiddingPersistence(services);
         return services;
     }
+
+    /// <summary>
+    /// Persists the notice ledger and the scheduled-execution history when
+    /// <c>Bidding:LedgerRoot</c> is configured. Without it both fall back to the
+    /// in-memory implementations registered by the application layer, so the host
+    /// still starts; the cost is that dedupe and (plan, date) idempotency do not
+    /// survive a restart. Both are resolved through a factory rather than eagerly so
+    /// an unconfigured host never touches the filesystem.
+    /// </summary>
+    private static void AddBiddingPersistence(IServiceCollection services)
+    {
+        services.AddOptions<BiddingOptions>().BindConfiguration("Bidding");
+
+        services.AddSingleton<IBiddingNoticeLedger>(serviceProvider =>
+            IsLedgerRootConfigured(serviceProvider)
+                ? ActivatorUtilities.CreateInstance<JsonLinesBiddingNoticeLedger>(serviceProvider)
+                : new InMemoryNoticeLedger());
+
+        services.AddSingleton<IScheduledCollectionHistory>(serviceProvider =>
+            IsLedgerRootConfigured(serviceProvider)
+                ? ActivatorUtilities.CreateInstance<JsonLinesScheduledCollectionHistory>(serviceProvider)
+                : new InMemoryScheduledCollectionHistory());
+    }
+
+    private static bool IsLedgerRootConfigured(IServiceProvider serviceProvider) =>
+        !string.IsNullOrWhiteSpace(serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<BiddingOptions>>()
+            .Value.LedgerRoot);
 
     /// <summary>
     /// Registers the real push channels under their plan channel keys. Both are

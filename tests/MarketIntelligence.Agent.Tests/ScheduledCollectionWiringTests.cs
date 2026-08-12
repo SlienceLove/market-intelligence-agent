@@ -2,6 +2,7 @@ using MarketIntelligence.Agent.Application;
 using MarketIntelligence.Agent.Application.Bidding;
 using MarketIntelligence.Agent.Application.Notifications;
 using MarketIntelligence.Agent.Infrastructure;
+using MarketIntelligence.Agent.Infrastructure.Bidding;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -97,11 +98,51 @@ public sealed class ScheduledCollectionWiringTests
         Assert.Equal(0, result.NoticesNotified);
     }
 
-    private static ServiceProvider BuildProvider()
+    [Fact]
+    public void WithoutLedgerRoot_HistoryAndLedgerStayInMemory()
     {
+        using var provider = BuildProvider();
+
+        Assert.IsType<InMemoryScheduledCollectionHistory>(
+            provider.GetRequiredService<IScheduledCollectionHistory>());
+        Assert.IsType<InMemoryNoticeLedger>(provider.GetRequiredService<IBiddingNoticeLedger>());
+    }
+
+    [Fact]
+    public void WithLedgerRoot_HistoryAndLedgerPersist()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mia-wiring-tests", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var provider = BuildProvider(new Dictionary<string, string?>
+            {
+                ["Bidding:LedgerRoot"] = root
+            });
+
+            Assert.IsType<JsonLinesScheduledCollectionHistory>(
+                provider.GetRequiredService<IScheduledCollectionHistory>());
+            Assert.IsType<JsonLinesBiddingNoticeLedger>(
+                provider.GetRequiredService<IBiddingNoticeLedger>());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    private static ServiceProvider BuildProvider(IDictionary<string, string?>? settings = null)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings ?? new Dictionary<string, string?>())
+            .Build();
+
         var services = new ServiceCollection();
         services.AddLogging();
-        services.AddSingleton<IConfiguration>(new ConfigurationBuilder().Build());
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddApplication();
         services.AddInfrastructure();
         return services.BuildServiceProvider();
