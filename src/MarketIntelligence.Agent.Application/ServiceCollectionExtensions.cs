@@ -54,5 +54,7 @@ public static class ServiceCollectionExtensions
                 serviceProvider.GetRequiredService<IScheduledCollectionHistory>(),
                 serviceProvider.GetRequiredService<IScheduledCollectionPlanSource>(),
                 serviceProvider.GetRequiredService<ILogger<ScheduledCollectionCoordinator>>()));
+
+        services.AddTransient<OnDemandCollectionService>();
     }
 }

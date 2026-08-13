@@ -3,16 +3,19 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MarketIntelligence.Agent.Api;
-using MarketIntelligence.Agent.Application.Media;
-using MarketIntelligence.Agent.Application.Images;
 using MarketIntelligence.Agent.Application;
+using MarketIntelligence.Agent.Application.Bidding;
+using MarketIntelligence.Agent.Application.Images;
+using MarketIntelligence.Agent.Application.Media;
 using MarketIntelligence.Agent.Infrastructure;
+using MarketIntelligence.Agent.Infrastructure.Bidding;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter(JsonNamingPolicy.CamelCase)));
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
+builder.Services.AddBiddingCollectionInfrastructure();
 
 var app = builder.Build();
 app.MapGet("/health", () => Results.Ok(new { status = "ready" }));
@@ -108,6 +111,17 @@ app.MapPost("/api/media/jobs/{jobId}/cancel", (
     return coordinator.Cancel(jobId)
         ? Results.Ok(coordinator.Get(jobId))
         : Results.NotFound();
+});
+
+app.MapPost("/api/bidding/collect", async Task<IResult> (
+    CollectOnDemandRequest? request,
+    OnDemandCollectionService service,
+    CancellationToken cancellationToken) =>
+{
+    var result = await service.ExecuteAsync(request ?? new CollectOnDemandRequest(), cancellationToken);
+    return result.Status == "failed"
+        ? Results.Problem(detail: "Collection failed for all plans.", statusCode: 500)
+        : Results.Ok(result);
 });
 
 app.Run();
