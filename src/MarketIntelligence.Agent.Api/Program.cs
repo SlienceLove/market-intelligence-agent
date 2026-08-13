@@ -17,6 +17,30 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure();
 builder.Services.AddBiddingCollectionInfrastructure();
 
+// Development-only: register a demo plan and use the fixture collector so
+// the pipeline can be exercised locally without real platform access.
+if (builder.Environment.IsDevelopment())
+{
+    var demoPlan = new ScheduledCollectionPlan
+    {
+        PlanId = "demo-plan-001",
+        Name = "演示计划 - IT采购招标",
+        Keywords = ["云计算", "软件采购", "信息化", "大数据"],
+        NotificationChannel = ScheduledNotificationChannels.Webhook,
+        ExecutionTimeUtc = new TimeOnly(0, 0), // always due (any time past midnight)
+        LookbackDays = 7,
+        MaxResults = 20,
+        Enabled = true
+    };
+    // Replace the empty default plan source with the demo plan.
+    builder.Services.AddSingleton<IScheduledCollectionPlanSource>(
+        _ => new InMemoryScheduledCollectionPlanSource([demoPlan]));
+
+    // Replace the composite HTTP collector with the fixture collector so no
+    // outbound HTTP requests are made during local demos.
+    builder.Services.AddSingleton<IBiddingNoticeCollector, DemoFixtureBiddingNoticeCollector>();
+}
+
 var app = builder.Build();
 app.MapGet("/health", () => Results.Ok(new { status = "ready" }));
 app.MapPost("/api/image/generate", async Task<IResult> (
