@@ -1,0 +1,196 @@
+app:
+  description: 招标信息采集演示 - 调用 .NET API 获取招标公告
+  icon: 📋
+  icon_background: '#6366F1'
+  mode: workflow
+  name: 招标采集测试
+kind: app
+version: 0.1.2
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: http-request
+      id: start-http-1
+      source: start
+      sourceHandle: source
+      target: http-1
+      type: custom
+    - data:
+        sourceType: http-request
+        targetType: code
+      id: http-1-code-1
+      source: http-1
+      sourceHandle: source
+      target: code-1
+      type: custom
+    - data:
+        sourceType: code
+        targetType: end
+      id: code-1-end
+      source: code-1
+      sourceHandle: source
+      target: end
+      type: custom
+    nodes:
+    - data:
+        desc: 工作流开始
+        selected: false
+        title: 开始
+        type: start
+        variables: []
+      height: 90
+      id: start
+      position:
+        x: 80
+        y: 200
+      positionAbsolute:
+        x: 80
+        y: 200
+      selected: false
+      type: custom
+      width: 244
+    - data:
+        authorization:
+          config:
+            api_key: demo-key-2026
+            header: X-Agent-Api-Key
+          type: api-key
+        body:
+          data: '{}'
+          type: json
+        desc: 调用招标采集 API
+        headers: 'Content-Type: application/json'
+        method: post
+        selected: false
+        timeout:
+          max_connect_timeout: 300
+          max_read_timeout: 600
+          max_write_timeout: 600
+        title: 招标采集API
+        type: http-request
+        url: http://host.docker.internal:5294/api/bidding/collect
+        variables: []
+      height: 162
+      id: http-1
+      position:
+        x: 384
+        y: 200
+      positionAbsolute:
+        x: 384
+        y: 200
+      selected: false
+      type: custom
+      width: 244
+    - data:
+        code: "import json\n\ndef main(response: str) -> dict:\n    \"\"\"\n    \u89E3\
+          \u6790 API \u8FD4\u56DE\u7ED3\u679C\n    \"\"\"\n    try:\n        data\
+          \ = json.loads(response)\n        \n        # \u63D0\u53D6\u5173\u952E\u4FE1\
+          \u606F\n        plans_executed = data.get('plansExecuted', 0)\n       \
+          \ total_notices = data.get('totalNoticesCollected', 0)\n        status\
+          \ = data.get('status', 'unknown')\n        \n        # \u683C\u5F0F\u5316\
+          \u8F93\u51FA\n        summary = f\"\"\"\u26A1 \u62DB\u6807\u91C7\u96C6\u5B8C\
+          \u6210\n\n\u2705 \u6267\u884C\u8BA1\u5212\u6570: {plans_executed}\n\u{1F4CB}\
+          \ \u91C7\u96C6\u516C\u544A\u6570: {total_notices}\n\u{1F4CA} \u6267\u884C\
+          \u72B6\u6001: {status}\n\n\"\"\"\n        \n        # \u6DFB\u52A0\u5404\
+          \u8BA1\u5212\u8BE6\u60C5\n        if 'plans' in data:\n            summary\
+          \ += \"\\n\u{1F4DD} \u5404\u8BA1\u5212\u8BE6\u60C5:\\n\"\n            for\
+          \ plan in data['plans']:\n                plan_id = plan.get('planId',\
+          \ 'unknown')\n                collected = plan.get('noticesCollected', 0)\n\
+          \                outcome = plan.get('outcome', 'unknown')\n           \
+          \     summary += f\"  \u2022 {plan_id}: {collected} \u6761\u516C\u544A\
+          \ ({outcome})\\n\"\n        \n        return {\n            \"result\": summary,\n\
+          \            \"plans_executed\": plans_executed,\n            \"total_notices\"\
+          : total_notices,\n            \"status\": status\n        }\n    except\
+          \ Exception as e:\n        return {\n            \"result\": f\"\u274C \u89E3\
+          \u6790\u5931\u8D25: {str(e)}\",\n            \"plans_executed\": 0,\n  \
+          \          \"total_notices\": 0,\n            \"status\": \"error\"\n  \
+          \      }\n"
+        code_language: python3
+        desc: 格式化输出结果
+        outputs:
+          plans_executed:
+            type: number
+          result:
+            type: string
+          status:
+            type: string
+          total_notices:
+            type: number
+        selected: false
+        title: 格式化输出
+        type: code
+        variables:
+        - value_selector:
+          - http-1
+          - body
+          variable: response
+      height: 162
+      id: code-1
+      position:
+        x: 688
+        y: 200
+      positionAbsolute:
+        x: 688
+        y: 200
+      selected: false
+      type: custom
+      width: 244
+    - data:
+        desc: 输出采集结果
+        outputs:
+        - value_selector:
+          - code-1
+          - result
+          variable: result
+        - value_selector:
+          - code-1
+          - plans_executed
+          variable: plans_executed
+        - value_selector:
+          - code-1
+          - total_notices
+          variable: total_notices
+        - value_selector:
+          - code-1
+          - status
+          variable: status
+        selected: false
+        title: 结束
+        type: end
+      height: 133
+      id: end
+      position:
+        x: 992
+        y: 200
+      positionAbsolute:
+        x: 992
+        y: 200
+      selected: false
+      type: custom
+      width: 244
