@@ -1,0 +1,129 @@
+openapi: "3.1.0"
+info:
+  title: Bidding Collection API
+  version: "1.0"
+  description: 招标信息采集接口 - Market Intelligence Agent
+servers:
+  - url: http://host.docker.internal:5294
+    description: 本地开发服务器（Docker容器内访问Windows主机）
+paths:
+  /api/bidding/collect:
+    post:
+      summary: 触发招标信息采集
+      description: 执行指定计划的招标信息采集，或执行所有到期计划
+      operationId: collectBidding
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                planIds:
+                  type: array
+                  items:
+                    type: string
+                  description: 指定要执行的计划ID列表。留空则执行所有到期计划
+                  example: ["demo-plan-001"]
+                asOf:
+                  type: string
+                  format: date
+                  description: 执行日期(yyyy-MM-dd格式)。默认为今天
+                  example: "2026-08-13"
+            examples:
+              executeAll:
+                summary: 执行所有到期计划
+                value: {}
+              executeSpecific:
+                summary: 执行指定计划
+                value:
+                  planIds: ["demo-plan-001"]
+              executeWithDate:
+                summary: 指定日期执行
+                value:
+                  planIds: ["demo-plan-001"]
+                  asOf: "2026-08-13"
+      responses:
+        '200':
+          description: 采集成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plansExecuted:
+                    type: integer
+                    description: 执行的计划数量
+                    example: 1
+                  totalNoticesCollected:
+                    type: integer
+                    description: 采集到的公告总数
+                    example: 2
+                  status:
+                    type: string
+                    enum: [success, partial, failed]
+                    description: 执行状态
+                    example: "success"
+                  skippedCount:
+                    type: integer
+                    description: 跳过的计划数量
+                    example: 0
+                  plans:
+                    type: array
+                    description: 各计划执行结果
+                    items:
+                      type: object
+                      properties:
+                        planId:
+                          type: string
+                          example: "demo-plan-001"
+                        noticesCollected:
+                          type: integer
+                          example: 2
+                        outcome:
+                          type: string
+                          example: "completed"
+                        error:
+                          type: string
+                          nullable: true
+                          example: null
+        '401':
+          description: 未授权 - API Key 错误或缺失
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    example: "https://tools.ietf.org/html/rfc7231#section-6.5.1"
+                  title:
+                    type: string
+                    example: "Unauthorized"
+                  status:
+                    type: integer
+                    example: 401
+        '500':
+          description: 服务器内部错误
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  status:
+                    type: integer
+                  detail:
+                    type: string
+      security:
+        - ApiKeyAuth: []
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-Agent-Api-Key
+      description: API密钥用于认证请求。开发环境默认值：demo-key-2026
