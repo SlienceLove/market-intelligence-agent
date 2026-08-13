@@ -4,7 +4,7 @@
 > 依据:《智能体项目开发流程计划》(2026-08-03 启动,预计 2026-09-18 完成整体联调,共 7 周)。
 > 详细实施计划见 `docs/superpowers/plans/` 下对应阶段文件;本文件只记录状态,不重复计划细节。
 
-**最后更新:2026-08-11**
+**最后更新:2026-08-13**
 
 ## 总体进度
 
@@ -109,7 +109,7 @@
 | 任务 | 目标日期 | 状态 | 备注 |
 |---|---|---|---|
 | 重点区域/行业招投标平台调研与采集规则梳理 | 09-07~09-08(提前至 08-11) | 🔄 进行中 | P5-00:合规边界与候选平台盘点;首批定义为 3 个平台起步,不追求覆盖全国;逐平台服务条款与 robots 结论需业务方确认后登记 |
-| 招投标资料采集模块开发 | 09-09~09-11(提前至 08-12) | 🔄 进行中 | P5-01 已完成(契约 + mock 采集器,20 项新测试,对抗评审 5 项发现已全部修复);P5-02 去重台账持久化已完成(JSON Lines + DI 注册);仅剩 P5-05 真实平台接入待清单确认,平台清单未到位不阻塞其余项 |
+| 招投标资料采集模块开发 | 09-09~09-11(提前至 08-12) | 🔄 进行中 | P5-01 已完成(契约 + mock 采集器,20 项新测试,对抗评审 5 项发现已全部修复);P5-02 去重台账持久化已完成(JSON Lines + DI 注册);P5-05a 已完成(robots.txt 合规缓存、三层限速器、HTTP 采集器、平台解析抽象、复合采集器与 DI 集成,14 个新文件,测试基线 314 通过/4 跳过);仅剩 P5-05b/c 真实平台 parser 待平台清单确认后逐个接入 |
 | 定时关键词采集与推送功能接入(群/邮箱) | 09-14(提前至 08-16) | ✅ 已完成(mock 数据源) | P5-03/P5-04/P5-04a 均已完成:SMTP 与群 Webhook 通道默认 `Enabled=false` 且默认 dry-run,真实投递需显式开启并人工确认收件人;按(计划 ID, 执行日期)幂等且跨重启持久化。真实平台数据源仍待 P5-05,对抗评审待执行 |
 | 全流程联调测试(五层任务全链路) | 09-15~09-17(提前至 08-21) | ⏳ 已排期未开始 | P5-06:五层为列关键词 → 搜资料入库 → 沉淀知识 → 按任务生成内容 → 收集招标信息;阶段二 `phase2-routing-v1` 只做只读回归 |
 | 汇报演示准备 | 09-18(提前至 08-22) | ⏳ 已排期未开始 | P5-06:演示脚本与 `phase5-integration-runbook.md` |
@@ -187,6 +187,7 @@
 | 2026-08-11 | **P5-04 完成**（定时采集，commit `7298b20`）：新增 `ScheduledCollectionPlan`（含 `Validate()` 与纯函数 `IsDueAt`）、`ScheduledCollectionCoordinator`、`IScheduledCollectionHistory` 与 Worker 侧 `ScheduledBiddingCollectionService`（`PeriodicTimer` 每分钟轮询，启动即跑一次，单次异常隔离不拖垮宿主）。幂等键为 (计划 ID, 执行日期)，`MarkNotifiedAsync` 只在推送成功后调用；校验发生在占位**之前**，避免坏配置烧掉当日槽位。全链路纵切打通：定时触发 → mock 采集 → 台账去重 → 渲染 → 通道推送。 |
 | 2026-08-11 | **P5-04 两处设计取舍**：① 原 `TryRecordExecutionAsync` 只要存在记录就拒绝，导致一次失败会把该计划锁死到次日；改为 `Failed`/`Skipped` 槽位当日可重入，`Completed`/`Running` 保持拦截。② "已过执行时刻仍算到期"——宿主在槽位那一分钟宕机时当日仍会补跑一次，防重复依赖幂等记录而非依赖 tick 精度。另**拒绝交付占位实现**：原 `ExecuteDuePlansAsync` 抛 `NotImplementedException` 且计划带未使用的 `CronExpression`，改为 `ExecutionTimeUtc` + `DaysOfWeek` 的可运行模型，偏离与理由已写入计划文档。 |
 | 2026-08-11 | **分支归位与推送状态**：P5-02~P5-04a 的 7 个提交此前误落在本地 `main` 上（会话起始 HEAD 应为特性分支）。已非破坏性归位：`git checkout -b feat/p5-bidding-collection` 保留全部提交，`git branch -f main origin/main` 把本地 `main` 退回 `bc5ef8c` 与远端一致，工作区干净、无提交丢失。**推送三次失败**（`Connection was reset` → `Could not connect to server`）；`curl https://github.com` 同样 20 秒超时，判定为环境临时无外网出口而非 git 配置问题，与 08-11 早前一次同因。待网络恢复后执行 `git push -u origin feat/p5-bidding-collection`。 |
+| 2026-08-13 | **P5-05a 完成**（HTTP 采集基础设施，commits 43cfc13 / 03dccaa / 8d78341 / 3608395）：新增14 个源码与测试文件：`RobotsTxtCache.cs`、`RobotsTxtRule.cs`、`RobotsTxtCacheTests.cs`（robots.txt RFC 9309 合规缓存）；`BiddingRateLimiter.cs`、`BiddingRateLimiterTests.cs`（三层限速：全局 / 单平台 / 单请求）；`IPlatformParser.cs`、`UnconfiguredPlatformParser.cs`、`HttpBiddingNoticeCollector.cs`、`MockRssPlatformParser.cs`、`HttpBiddingNoticeCollectorTests.cs`（HTTP 采集器与平台解析抽象）；`CompositeBiddingNoticeCollector.cs`、`BiddingCollectionServiceCollectionExtensions.cs`、`BiddingCollectionDiIntegrationTests.cs`、`CompositeBiddingNoticeCollectorTests.cs`（复合采集器与 DI 集成）。同时修改 `Program.cs` 调用 `AddBiddingCollectionInfrastructure()`。最终测试基线：**314 通过 / 4 跳过**（260 → 314，新增 54 项）。DI 接线：`ScheduledCollectionCoordinator` 经 `IBiddingNoticeCollector` 接收 `CompositeBiddingNoticeCollector`，`AddBiddingCollectionInfrastructure()` 在 Worker 宿主中统一注册。 |
 | 2026-08-11 | **P5-04a 调度历史持久化（收敛 P5-04 已知缺口）**：新增 `JsonLinesScheduledCollectionHistory`，重启后 `Completed` 槽位仍拦截重复推送。损坏文件此处**失败开放**（隔离并清空内存状态），与台账取向相反且是刻意的——无法证明"已推送"的槽位必须保持可占位，否则一个损坏文件会静默抑制一次从未发生的推送。同时修正 P5-02 遗漏：`JsonLinesBiddingNoticeLedger` 当时**根本没注册进 DI**，实际运行仍走内存实现；现按 `Bidding:LedgerRoot` 是否配置择一注册，未配置时退回内存且 host 仍可启动。测试基线 172 → 260 通过 / 4 跳过。 |
 
 ---
