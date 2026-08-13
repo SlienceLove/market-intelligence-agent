@@ -1,4 +1,5 @@
 using MarketIntelligence.Agent.Application.Bidding;
+using MarketIntelligence.Agent.Infrastructure.Notifications;
 using Microsoft.Extensions.Logging;
 
 namespace MarketIntelligence.Agent.Infrastructure.Bidding;
@@ -42,6 +43,21 @@ public sealed class HttpBiddingNoticeCollector : IBiddingNoticeCollector
             // 1. Build platform URL from request
             var uri = _parser.BuildSearchUri(request);
 
+            // 1a. SSRF guard: reject private/internal endpoints before any outbound request
+            if (!SsrfGuard.IsCollectionUrlSafe(uri))
+            {
+                _logger.LogWarning(
+                    "SSRF guard blocked collection from {Uri} for platform {Platform}",
+                    uri,
+                    _parser.PlatformId);
+
+                return BiddingCollectionResult.Failed(
+                    request.CollectionId,
+                    "bidding_source_not_allowed",
+                    "Collection URI blocked by SSRF guard",
+                    request.CorrelationId);
+            }
+
             _logger.LogInformation(
                 "Starting HTTP collection for platform {Platform} at {Uri}",
                 _parser.PlatformId,
@@ -66,14 +82,11 @@ public sealed class HttpBiddingNoticeCollector : IBiddingNoticeCollector
             // 3. Wait for rate limiter
             await _rateLimiter.WaitAsync(_parser.PlatformId, cancellationToken).ConfigureAwait(false);
 
-            // 4. Fetch HTTP content with timeout
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cts.CancelAfter(TimeSpan.FromSeconds(30));
-
+            // 4. Fetch HTTP content — HttpClient.Timeout (30 s) covers the per-request deadline
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.GetAsync(uri, cts.Token).ConfigureAwait(false);
+                response = await _httpClient.GetAsync(uri, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {

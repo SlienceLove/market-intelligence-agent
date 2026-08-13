@@ -2,20 +2,22 @@ using System.Net;
 using System.Net.Http.Json;
 using MarketIntelligence.Agent.Application.Bidding;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 
 namespace MarketIntelligence.Agent.Tests;
 
 public sealed class BiddingCollectEndpointTests : IClassFixture<WebApplicationFactory<Program>>
 {
-    private readonly HttpClient _client;
+    private readonly WebApplicationFactory<Program> _factory;
 
     public BiddingCollectEndpointTests(WebApplicationFactory<Program> factory) =>
-        _client = factory.CreateClient();
+        _factory = factory;
 
     [Fact]
     public async Task PostCollect_RouteIsRegistered_DoesNotReturn404()
     {
-        using var response = await _client.PostAsJsonAsync(
+        using var client = _factory.CreateClient();
+        using var response = await client.PostAsJsonAsync(
             "/api/bidding/collect",
             new CollectOnDemandRequest());
 
@@ -23,9 +25,24 @@ public sealed class BiddingCollectEndpointTests : IClassFixture<WebApplicationFa
     }
 
     [Fact]
+    public async Task PostCollect_MissingAuthHeader_Returns401()
+    {
+        using var client = _factory.CreateClient();
+        using var response = await client.PostAsJsonAsync(
+            "/api/bidding/collect",
+            new CollectOnDemandRequest());
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
     public async Task PostCollect_EmptyBody_ReturnsWellFormedResponse()
     {
-        using var response = await _client.PostAsJsonAsync(
+        using var factory = CreateConfiguredFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Agent-Api-Key", "test-bidding-key");
+
+        using var response = await client.PostAsJsonAsync(
             "/api/bidding/collect",
             new CollectOnDemandRequest());
 
@@ -41,7 +58,11 @@ public sealed class BiddingCollectEndpointTests : IClassFixture<WebApplicationFa
     [Fact]
     public async Task PostCollect_EmptyBody_ResponseBodyIsDeserializable()
     {
-        using var response = await _client.PostAsJsonAsync(
+        using var factory = CreateConfiguredFactory();
+        using var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Agent-Api-Key", "test-bidding-key");
+
+        using var response = await client.PostAsJsonAsync(
             "/api/bidding/collect",
             new CollectOnDemandRequest());
 
@@ -61,4 +82,12 @@ public sealed class BiddingCollectEndpointTests : IClassFixture<WebApplicationFa
             Assert.False(string.IsNullOrWhiteSpace(body));
         }
     }
+
+    private static WebApplicationFactory<Program> CreateConfiguredFactory() =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+            builder.ConfigureAppConfiguration((_, configuration) =>
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["Bidding:BridgeApiKey"] = "test-bidding-key"
+                })));
 }

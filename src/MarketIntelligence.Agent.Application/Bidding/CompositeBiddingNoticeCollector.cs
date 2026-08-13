@@ -44,9 +44,31 @@ public sealed class CompositeBiddingNoticeCollector : IBiddingNoticeCollector
             collectorList.Count,
             request.CollectionId);
 
-        // Collect from all platforms in parallel
-        var tasks = collectorList.Select(collector =>
-            collector.CollectAsync(request, cancellationToken));
+        // Collect from all platforms in parallel, catching per-collector exceptions so
+        // one misbehaving collector cannot abort the entire composite run.
+        var tasks = collectorList.Select(async collector =>
+        {
+            try
+            {
+                return await collector.CollectAsync(request, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Collector {CollectorId} threw unhandled exception",
+                    collector.SourcePlatform);
+                return BiddingCollectionResult.Failed(
+                    request.CollectionId,
+                    "collector_error",
+                    ex.Message,
+                    request.CorrelationId);
+            }
+        });
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
 

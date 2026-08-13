@@ -149,6 +149,46 @@ public sealed class OnDemandCollectionServiceTests
         Assert.Equal(2, response.Plans.Count);
     }
 
+    [Fact]
+    public async Task ExecuteAsync_AllSkipped_ReturnsSuccessStatus()
+    {
+        var coordinator = new StubCoordinator(factory: (plan, date) =>
+            ScheduledCollectionResult.Skipped(plan.PlanId, date, "already_running"));
+
+        var service = CreateService(
+            coordinator: coordinator,
+            planSource: new StubPlanSource(CreatePlan("p1"), CreatePlan("p2")));
+
+        var response = await service.ExecuteAsync(new CollectOnDemandRequest());
+
+        Assert.Equal("success", response.Status);
+        Assert.Equal(2, response.PlansExecuted);
+        Assert.Equal(2, response.SkippedCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MixedSkippedAndFailed_ReturnsPartialStatus()
+    {
+        var callIndex = 0;
+        var coordinator = new StubCoordinator(factory: (plan, date) =>
+        {
+            callIndex++;
+            return callIndex == 1
+                ? ScheduledCollectionResult.Skipped(plan.PlanId, date, "already_running")
+                : ScheduledCollectionResult.Failed(plan.PlanId, date, "provider_unavailable");
+        });
+
+        var service = CreateService(
+            coordinator: coordinator,
+            planSource: new StubPlanSource(CreatePlan("p1"), CreatePlan("p2")));
+
+        var response = await service.ExecuteAsync(new CollectOnDemandRequest());
+
+        Assert.Equal("partial", response.Status);
+        Assert.Equal(2, response.PlansExecuted);
+        Assert.Equal(1, response.SkippedCount);
+    }
+
     // ── test doubles ─────────────────────────────────────────────────────────
 
     private sealed class StubPlanSource(params ScheduledCollectionPlan[] plans)

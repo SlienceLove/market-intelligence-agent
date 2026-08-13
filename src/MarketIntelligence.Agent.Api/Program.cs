@@ -114,10 +114,17 @@ app.MapPost("/api/media/jobs/{jobId}/cancel", (
 });
 
 app.MapPost("/api/bidding/collect", async Task<IResult> (
+    HttpRequest httpRequest,
+    IConfiguration configuration,
     CollectOnDemandRequest? request,
     OnDemandCollectionService service,
     CancellationToken cancellationToken) =>
 {
+    if (!ServiceAuthorization.IsAuthorized(httpRequest, configuration, "Bidding:BridgeApiKey"))
+    {
+        return Results.Unauthorized();
+    }
+
     var result = await service.ExecuteAsync(request ?? new CollectOnDemandRequest(), cancellationToken);
     return result.Status == "failed"
         ? Results.Problem(detail: "Collection failed for all plans.", statusCode: 500)

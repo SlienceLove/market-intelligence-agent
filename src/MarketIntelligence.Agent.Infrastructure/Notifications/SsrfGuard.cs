@@ -142,6 +142,56 @@ public static class SsrfGuard
     }
 
     /// <summary>
+    /// True when the URI points to a public endpoint (http or https) reachable via a
+    /// domain name (not an IP literal) and not in a private, loopback, or link-local
+    /// range. Use for outbound HTTP collection (bidding notices, robots.txt) where both
+    /// HTTP and HTTPS are legitimate schemes but internal-network access must still be
+    /// blocked.
+    /// </summary>
+    public static bool IsCollectionUrlSafe(Uri uri)
+    {
+        if (uri is null)
+        {
+            return false;
+        }
+
+        // Only HTTP and HTTPS are permitted for collection requests.
+        if (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+        {
+            return false;
+        }
+
+        // IP literals (both v4 and v6) are rejected.
+        if (IPAddress.TryParse(uri.Host, out _))
+        {
+            return false;
+        }
+
+        // Resolve the domain and check every returned address.
+        try
+        {
+            var addresses = Dns.GetHostAddresses(uri.Host);
+            return addresses.All(IsPublicAddress);
+        }
+        catch
+        {
+            // DNS resolution failure: treat as unsafe rather than allowing it through.
+            return false;
+        }
+    }
+
+    /// <inheritdoc cref="IsCollectionUrlSafe(Uri)"/>
+    public static bool IsCollectionUrlSafe(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return false;
+        }
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var uri) && IsCollectionUrlSafe(uri);
+    }
+
+    /// <summary>
     /// Validates an email recipient to prevent SSRF via SMTP relay. Checks that the
     /// domain resolves to public IPs only (no private, loopback, or link-local).
     /// </summary>

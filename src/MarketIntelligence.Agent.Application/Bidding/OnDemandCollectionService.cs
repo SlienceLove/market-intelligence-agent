@@ -43,6 +43,7 @@ public sealed class OnDemandCollectionService
 
         var summaries = new List<PlanCollectionSummary>(plansToRun.Count);
         var succeededCount = 0;
+        var skippedCount = 0;
 
         foreach (var plan in plansToRun)
         {
@@ -52,6 +53,13 @@ public sealed class OnDemandCollectionService
                 if (result.Succeeded)
                 {
                     succeededCount++;
+                }
+                else if (result.Status == ScheduledCollectionStatus.Skipped)
+                {
+                    // Skipped means the plan already ran today (idempotency guard fired).
+                    // This is not an error; count it separately so the caller can distinguish
+                    // "all done" from "all truly failed".
+                    skippedCount++;
                 }
 
                 summaries.Add(new PlanCollectionSummary
@@ -80,17 +88,19 @@ public sealed class OnDemandCollectionService
             }
         }
 
+        var nonFailedCount = succeededCount + skippedCount;
         var status = summaries.Count == 0 ? "failed"
-            : succeededCount == summaries.Count ? "success"
-            : succeededCount == 0 ? "failed"
-            : "partial";
+            : nonFailedCount == summaries.Count ? "success"
+            : nonFailedCount > 0 ? "partial"
+            : "failed";
 
         return new CollectOnDemandResponse
         {
             PlansExecuted = summaries.Count,
             TotalNoticesCollected = summaries.Sum(s => s.NoticesCollected),
             Plans = summaries,
-            Status = status
+            Status = status,
+            SkippedCount = skippedCount
         };
     }
 }

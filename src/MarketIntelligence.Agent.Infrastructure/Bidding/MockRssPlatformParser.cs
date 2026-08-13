@@ -14,8 +14,9 @@ public sealed class MockRssPlatformParser : IPlatformParser
 
     public Uri BuildSearchUri(BiddingCollectionRequest request)
     {
-        // Mock: return fixed URL, ignore request params
-        return new Uri("https://mock-platform.example/rss");
+        // Mock: return a publicly-resolvable URL so the SSRF guard passes in tests.
+        // The stub HttpClient in tests intercepts the request regardless of host.
+        return new Uri("https://example.com/rss");
     }
 
     public Task<BiddingNotice[]> ParseAsync(

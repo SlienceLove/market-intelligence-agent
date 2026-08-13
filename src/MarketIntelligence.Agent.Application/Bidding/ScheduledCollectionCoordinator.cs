@@ -239,7 +239,8 @@ public sealed class ScheduledCollectionCoordinator : IScheduledCollectionCoordin
     /// </summary>
     private static BiddingCollectionRequest BuildCollectionRequest(ScheduledCollectionPlan plan, DateOnly executionDate)
     {
-        var toDate = new DateTimeOffset(executionDate.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        // Use end-of-day so notices published on executionDate itself are included.
+        var toDate = new DateTimeOffset(executionDate.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero);
         var fromDate = toDate.AddDays(-plan.LookbackDays);
 
         return new BiddingCollectionRequest
@@ -295,7 +296,7 @@ public sealed class ScheduledCollectionCoordinator : IScheduledCollectionCoordin
     }
 
     private INotificationChannel SelectChannel(string channelName) =>
-        channelName.Equals("smtp", StringComparison.OrdinalIgnoreCase) ? _smtpChannel :
-        channelName.Equals("webhook", StringComparison.OrdinalIgnoreCase) ? _webhookChannel :
+        channelName.Trim().Equals("smtp", StringComparison.OrdinalIgnoreCase) ? _smtpChannel :
+        channelName.Trim().Equals("webhook", StringComparison.OrdinalIgnoreCase) ? _webhookChannel :
         throw new InvalidOperationException($"Unknown notification channel: {channelName}");
 }

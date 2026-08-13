@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net;
+using MarketIntelligence.Agent.Infrastructure.Notifications;
 
 namespace MarketIntelligence.Agent.Infrastructure.Bidding;
 
@@ -15,6 +16,10 @@ public sealed class RobotsTxtCache
 
     private readonly HttpClient _httpClient;
     private readonly ConcurrentDictionary<string, CacheEntry> _cache = new(StringComparer.OrdinalIgnoreCase);
+
+    // Per-host semaphores prevent a thundering herd on cache expiry: only one
+    // goroutine fetches while others wait and then reuse the fresh entry.
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _fetchLocks = new(StringComparer.OrdinalIgnoreCase);
 
     public RobotsTxtCache(HttpClient httpClient)
     {
@@ -48,10 +53,11 @@ public sealed class RobotsTxtCache
             return false;
         }
 
-        // No robots.txt or parse error (fail-closed on parse error)
+        // entry.FetchFailed was already handled above; if Rules is null here,
+        // the fetch succeeded but returned no rules (404/410/empty content) — allow the path.
         if (entry.Rules is null)
         {
-            return entry.FetchFailed ? false : true;
+            return true;
         }
 
         // Find matching rule (longest user-agent match wins, "*" is fallback)
@@ -121,20 +127,32 @@ public sealed class RobotsTxtCache
         string scheme,
         CancellationToken cancellationToken)
     {
-        if (_cache.TryGetValue(host, out var cached))
+        // Fast path: valid cache hit (no lock needed for reads)
+        if (_cache.TryGetValue(host, out var cached) && DateTimeOffset.UtcNow < cached.ExpiresAt)
         {
-            if (DateTimeOffset.UtcNow < cached.ExpiresAt)
+            return cached;
+        }
+
+        // Slow path: acquire per-host lock to prevent thundering herd on cache expiry
+        var hostLock = _fetchLocks.GetOrAdd(host, _ => new SemaphoreSlim(1, 1));
+        await hostLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            // Double-check inside lock: another waiter may have already refreshed the entry
+            if (_cache.TryGetValue(host, out cached) && DateTimeOffset.UtcNow < cached.ExpiresAt)
             {
                 return cached;
             }
 
-            // Expired, remove and refetch
             _cache.TryRemove(host, out _);
+            var entry = await FetchAndParseRobotsTxtAsync(host, scheme, cancellationToken).ConfigureAwait(false);
+            _cache.TryAdd(host, entry);
+            return entry;
         }
-
-        var entry = await FetchAndParseRobotsTxtAsync(host, scheme, cancellationToken).ConfigureAwait(false);
-        _cache.TryAdd(host, entry);
-        return entry;
+        finally
+        {
+            hostLock.Release();
+        }
     }
 
     private async Task<CacheEntry> FetchAndParseRobotsTxtAsync(
@@ -143,6 +161,12 @@ public sealed class RobotsTxtCache
         CancellationToken cancellationToken)
     {
         var robotsUrl = $"{scheme}://{host}/robots.txt";
+
+        // SSRF guard: deny fetch for private/internal hosts (fail-closed)
+        if (!SsrfGuard.IsCollectionUrlSafe(robotsUrl))
+        {
+            return new CacheEntry(null, FetchFailed: true, DateTimeOffset.UtcNow.Add(CacheTtl));
+        }
 
         try
         {

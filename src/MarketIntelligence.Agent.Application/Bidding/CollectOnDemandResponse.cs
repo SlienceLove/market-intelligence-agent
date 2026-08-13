@@ -9,6 +9,13 @@ public sealed record CollectOnDemandResponse
 
     /// <summary>Overall outcome: "success", "partial", or "failed".</summary>
     public required string Status { get; init; }
+
+    /// <summary>
+    /// Plans that were already completed today and skipped due to idempotency.
+    /// A non-zero value here is normal when the endpoint is called more than once
+    /// per day; it does not indicate an error.
+    /// </summary>
+    public int SkippedCount { get; init; }
 }
 
 public sealed record PlanCollectionSummary

@@ -58,11 +58,29 @@ public sealed class BiddingRateLimiter : IBiddingRateLimiter
         }
     }
 
+    /// <summary>
+    /// Waits until rate limit constraints allow the request to proceed.
+    /// Enforces: platform serialization, minimum interval, and global QPS.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="platformId"/> must be a stable, bounded identifier (e.g. the parser
+    /// platform name). Do not pass per-URL or per-request values: the limiter allocates one
+    /// semaphore per distinct ID, and high-cardinality identifiers will exhaust memory.
+    /// </remarks>
     public async Task WaitAsync(string platformId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(platformId))
         {
             throw new ArgumentException("Platform ID cannot be null or empty.", nameof(platformId));
+        }
+
+        // Guard against unbounded growth from high-cardinality identifiers.
+        if (_platformSemaphores.Count > 1000 && !_platformSemaphores.ContainsKey(platformId))
+        {
+            throw new InvalidOperationException(
+                "platformId cardinality limit exceeded. " +
+                "platformId must be a stable, bounded identifier (e.g. parser platform name). " +
+                "Do not pass per-URL or per-request values.");
         }
 
         // Layer 1: Acquire platform-specific semaphore (ensures serialization per platform)

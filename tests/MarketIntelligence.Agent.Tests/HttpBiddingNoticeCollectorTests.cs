@@ -168,7 +168,7 @@ public sealed class HttpBiddingNoticeCollectorTests
     {
         var httpHandler = new StubHandler(async (_, cancellationToken) =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(35), cancellationToken);
+            await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             return new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("<rss></rss>")
@@ -178,7 +178,9 @@ public sealed class HttpBiddingNoticeCollectorTests
         var robotsHandler = new StubHandler((_, _) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound)));
 
-        var collector = CreateCollector(httpHandler, robotsHandler);
+        // FIX 10: inner CTS removed; HttpClient.Timeout now drives the deadline
+        var collector = CreateCollector(httpHandler, robotsHandler,
+            httpClientTimeout: TimeSpan.FromMilliseconds(50));
         var request = CreateRequest("test-collection-7");
 
         var result = await collector.CollectAsync(request);
@@ -271,7 +273,8 @@ public sealed class HttpBiddingNoticeCollectorTests
     private static HttpBiddingNoticeCollector CreateCollector(
         HttpMessageHandler httpHandler,
         HttpMessageHandler robotsHandler,
-        int minimumIntervalSeconds = 0)
+        int minimumIntervalSeconds = 0,
+        TimeSpan? httpClientTimeout = null)
     {
         var parser = new MockRssPlatformParser();
         var robotsCache = new RobotsTxtCache(new HttpClient(robotsHandler));
@@ -287,6 +290,11 @@ public sealed class HttpBiddingNoticeCollectorTests
 
         var rateLimiter = new BiddingRateLimiter(options);
         var httpClient = new HttpClient(httpHandler);
+        if (httpClientTimeout.HasValue)
+        {
+            httpClient.Timeout = httpClientTimeout.Value;
+        }
+
         var logger = NullLogger<HttpBiddingNoticeCollector>.Instance;
 
         return new HttpBiddingNoticeCollector(
