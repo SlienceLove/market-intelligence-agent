@@ -1,6 +1,7 @@
 using MarketIntelligence.Agent.Application.Bidding;
 using MarketIntelligence.Agent.Infrastructure.Notifications;
 using Microsoft.Extensions.Logging;
+using System.Text.Json;
 
 namespace MarketIntelligence.Agent.Infrastructure.Bidding;
 
@@ -63,7 +64,12 @@ public sealed class HttpBiddingNoticeCollector : IBiddingNoticeCollector
                 _parser.PlatformId,
                 uri);
 
-            // 2. Check robots.txt
+            // 2. Reserve a rate-limit slot for the robots request. On a cache
+            // hit this is conservative, but it guarantees the first content
+            // request is still separated from a real robots fetch.
+            await _rateLimiter.WaitAsync(_parser.PlatformId, cancellationToken).ConfigureAwait(false);
+
+            // 3. Check robots.txt
             var allowed = await _robotsCache.IsAllowedAsync(uri, cancellationToken).ConfigureAwait(false);
             if (!allowed)
             {
@@ -79,10 +85,11 @@ public sealed class HttpBiddingNoticeCollector : IBiddingNoticeCollector
                     request.CorrelationId);
             }
 
-            // 3. Wait for rate limiter
+            // 4. Wait for a second slot before fetching content. This enforces
+            // the configured minimum interval between robots.txt and the page.
             await _rateLimiter.WaitAsync(_parser.PlatformId, cancellationToken).ConfigureAwait(false);
 
-            // 4. Fetch HTTP content — HttpClient.Timeout (30 s) covers the per-request deadline
+            // 5. Fetch HTTP content — HttpClient.Timeout (30 s) covers the per-request deadline
             HttpResponseMessage response;
             try
             {
@@ -104,7 +111,7 @@ public sealed class HttpBiddingNoticeCollector : IBiddingNoticeCollector
 
             using (response)
             {
-                // 5. Handle HTTP status codes
+                // 6. Handle HTTP status codes
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
                     _logger.LogInformation(
@@ -164,10 +171,32 @@ public sealed class HttpBiddingNoticeCollector : IBiddingNoticeCollector
 
                 response.EnsureSuccessStatusCode();
 
-                // 6. Read and parse content
+                // 7. Read and parse content
                 var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-                var notices = await _parser.ParseAsync(content, request, cancellationToken).ConfigureAwait(false);
+                BiddingNotice[] notices;
+                try
+                {
+                    notices = await _parser.ParseAsync(content, request, cancellationToken).ConfigureAwait(false);
+                }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Platform {Platform} returned malformed JSON", _parser.PlatformId);
+                    return BiddingCollectionResult.Failed(
+                        request.CollectionId,
+                        "notice_parse_failed",
+                        "Platform response could not be parsed",
+                        request.CorrelationId);
+                }
+                catch (FormatException ex)
+                {
+                    _logger.LogWarning(ex, "Platform {Platform} returned an invalid notice payload", _parser.PlatformId);
+                    return BiddingCollectionResult.Failed(
+                        request.CollectionId,
+                        "notice_parse_failed",
+                        "Platform response could not be parsed",
+                        request.CorrelationId);
+                }
 
                 _logger.LogInformation(
                     "Successfully collected {Count} notices from platform {Platform}",

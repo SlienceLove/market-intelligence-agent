@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "plans": [
+    {
+      "planId": "daily-market",
+      "name": "Daily market scan",
+      "keywords": [
+        "云计算",
+        "软件采购"
+      ],
+      "regionFilter": "江苏省",
+      "industryFilter": "信息技术",
+      "lookbackDays": 7,
+      "maxResults": 20,
+      "notificationChannel": "webhook",
+      "executionTimeUtc": "09:30:00",
+      "daysOfWeek": [
+        "Monday",
+        "Friday"
+      ],
+      "enabled": true
+    }
+  ]
+}

@@ -24,6 +24,14 @@ public sealed class BiddingCollectionDiIntegrationTests
         // Assert
         Assert.NotNull(provider.GetService<RobotsTxtCache>());
         Assert.NotNull(provider.GetService<IBiddingRateLimiter>());
+        var jiangsuCollector = provider.GetRequiredKeyedService<IBiddingNoticeCollector>("jszbtb.com");
+        Assert.Equal("jszbtb.com", jiangsuCollector.SourcePlatform);
+        Assert.Equal(
+            "ggzy.gov.cn",
+            provider.GetRequiredKeyedService<IBiddingNoticeCollector>("ggzy.gov.cn").SourcePlatform);
+        Assert.Equal(
+            "ccgp-jiangsu.gov.cn",
+            provider.GetRequiredKeyedService<IBiddingNoticeCollector>("ccgp-jiangsu.gov.cn").SourcePlatform);
 
         // Should be able to resolve IBiddingNoticeCollector (the composite)
         var collector = provider.GetService<IBiddingNoticeCollector>();

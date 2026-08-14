@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using MarketIntelligence.Agent.Application.Bidding;
 using MarketIntelligence.Agent.Application.Media;
 using MarketIntelligence.Agent.Application.Images;
@@ -60,7 +61,10 @@ public static class ServiceCollectionExtensions
     /// </summary>
     private static void AddBiddingPersistence(IServiceCollection services)
     {
-        services.AddOptions<BiddingOptions>().BindConfiguration("Bidding");
+        services.AddSingleton<IValidateOptions<BiddingOptions>, BiddingOptionsValidator>();
+        services.AddOptions<BiddingOptions>()
+            .BindConfiguration("Bidding")
+            .ValidateOnStart();
 
         services.AddSingleton<IBiddingNoticeLedger>(serviceProvider =>
             IsLedgerRootConfigured(serviceProvider)
@@ -71,12 +75,22 @@ public static class ServiceCollectionExtensions
             IsLedgerRootConfigured(serviceProvider)
                 ? ActivatorUtilities.CreateInstance<JsonLinesScheduledCollectionHistory>(serviceProvider)
                 : new InMemoryScheduledCollectionHistory());
+
+        services.AddSingleton<IScheduledCollectionPlanSource>(serviceProvider =>
+            IsPlanRootConfigured(serviceProvider)
+                ? ActivatorUtilities.CreateInstance<JsonFileScheduledCollectionPlanSource>(serviceProvider)
+                : new InMemoryScheduledCollectionPlanSource());
     }
 
     private static bool IsLedgerRootConfigured(IServiceProvider serviceProvider) =>
         !string.IsNullOrWhiteSpace(serviceProvider
             .GetRequiredService<Microsoft.Extensions.Options.IOptions<BiddingOptions>>()
             .Value.LedgerRoot);
+
+    private static bool IsPlanRootConfigured(IServiceProvider serviceProvider) =>
+        !string.IsNullOrWhiteSpace(serviceProvider
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<BiddingOptions>>()
+            .Value.PlanRoot);
 
     /// <summary>
     /// Registers the real push channels under their plan channel keys. Both are

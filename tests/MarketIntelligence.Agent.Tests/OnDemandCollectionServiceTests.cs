@@ -167,6 +167,30 @@ public sealed class OnDemandCollectionServiceTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_CachedCompletion_IsReportedAsSkipped()
+    {
+        var coordinator = new StubCoordinator(factory: (plan, date) =>
+            ScheduledCollectionResult.Success(plan.PlanId, date, 2, 2, 2, "notif-cached") with
+            {
+                WasAlreadyCompleted = true
+            });
+
+        var service = CreateService(
+            coordinator: coordinator,
+            planSource: new StubPlanSource(CreatePlan("p1")));
+
+        var response = await service.ExecuteAsync(new CollectOnDemandRequest());
+
+        Assert.Equal("success", response.Status);
+        Assert.Equal(1, response.SkippedCount);
+        Assert.Equal(0, response.TotalNoticesCollected);
+        var summary = Assert.Single(response.Plans);
+        Assert.Equal("skipped", summary.Outcome);
+        Assert.Equal("already_completed", summary.Error);
+        Assert.Equal(0, summary.NoticesCollected);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_MixedSkippedAndFailed_ReturnsPartialStatus()
     {
         var callIndex = 0;

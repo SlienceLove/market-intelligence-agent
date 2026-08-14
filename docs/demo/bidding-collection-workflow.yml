@@ -1,22 +1,71 @@
 app:
-  description: 招标信息采集演示 - 调用 .NET API 获取招标公告
-  icon: 📋
-  icon_background: '#6366F1'
+  description: 调用 .NET API 采集招标公告
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  icon_type: emoji
   mode: workflow
   name: 招标采集测试
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/openai:1.0.3@cc37544750d72ca3782bdaa81ab0e2facbf5bb74105a169a7ff974a27c6a5f29
+    version: null
 kind: app
-version: 0.1.2
+version: 0.7.0
 workflow:
   conversation_variables: []
-  environment_variables: []
+  environment_variables:
+  - description: .NET 招标采集 API 地址；当前本机使用 WSL 网关
+    id: bidding_api_base_url
+    name: BIDDING_API_BASE_URL
+    selector:
+    - env
+    - BIDDING_API_BASE_URL
+    value: http://172.30.144.1:5294
+    value_type: string
+  - description: '与 Bidding:BridgeApiKey 一致；导入后在 Dify 中填写，不提交真实值'
+    id: bidding_api_key
+    name: BIDDING_API_KEY
+    selector:
+    - env
+    - BIDDING_API_KEY
+    value: ''
+    value_type: secret
   features:
     file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        attachment_image_file_size_limit: 2
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        file_upload_limit: 20
+        image_file_batch_limit: 10
+        image_file_size_limit: 10
+        single_chunk_attachment_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
       image:
         enabled: false
         number_limits: 3
         transfer_methods:
         - local_file
         - remote_url
+      number_limits: 3
     opening_statement: ''
     retriever_resource:
       enabled: false
@@ -34,163 +83,418 @@ workflow:
   graph:
     edges:
     - data:
-        sourceType: start
-        targetType: http-request
-      id: start-http-1
-      source: start
-      sourceHandle: source
-      target: http-1
-      type: custom
-    - data:
+        isInIteration: false
+        isInLoop: false
         sourceType: http-request
         targetType: code
-      id: http-1-code-1
-      source: http-1
+      id: 1786592691129-source-1786599060590-target
+      selected: false
+      source: '1786592691129'
       sourceHandle: source
-      target: code-1
+      target: '1786599060590'
+      targetHandle: target
       type: custom
+      zIndex: 0
     - data:
+        isInIteration: false
+        isInLoop: false
         sourceType: code
-        targetType: end
-      id: code-1-end
-      source: code-1
+        targetType: code
+      id: 1786599060590-source-1786598924035-target
+      selected: false
+      source: '1786599060590'
       sourceHandle: source
-      target: end
+      target: '1786598924035'
+      targetHandle: target
       type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: end
+      id: 1786598924035-source-1786597101836-target
+      selected: false
+      source: '1786598924035'
+      sourceHandle: source
+      target: '1786597101836'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: code
+      id: 1786599583970-source-1786599866896-target
+      selected: false
+      source: '1786599583970'
+      sourceHandle: source
+      target: '1786599866896'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1786599866896-source-1786592691129-target
+      source: '1786599866896'
+      sourceHandle: source
+      target: '1786592691129'
+      targetHandle: target
+      type: custom
+      zIndex: 0
     nodes:
     - data:
-        desc: 工作流开始
+        author: Slience996
+        desc: ''
+        height: 88
         selected: false
-        title: 开始
-        type: start
-        variables: []
-      height: 90
-      id: start
+        showAuthor: true
+        text: ''
+        theme: blue
+        title: ''
+        type: ''
+        width: 240
+      height: 88
+      id: '1786592464923'
       position:
-        x: 80
-        y: 200
+        x: 102.00000000000011
+        y: 25.000000000000185
       positionAbsolute:
-        x: 80
-        y: 200
+        x: 102.00000000000011
+        y: 25.000000000000185
       selected: false
-      type: custom
-      width: 244
+      sourcePosition: right
+      targetPosition: left
+      type: custom-note
+      width: 240
+      zIndex: 0
     - data:
         authorization:
           config:
-            api_key: demo-key-2026
+            api_key: '{{#env.BIDDING_API_KEY#}}'
             header: X-Agent-Api-Key
+            type: custom
           type: api-key
         body:
-          data: '{}'
+          data:
+          - id: key-value-117
+            key: ''
+            type: text
+            value: '{{#1786599866896.request_body#}}'
           type: json
-        desc: 调用招标采集 API
-        headers: 'Content-Type: application/json'
+        headers: Content-Type:application/json
         method: post
+        params: ''
+        retry_config:
+          max_retries: 1
+          retry_enabled: true
+          retry_interval: 1000
         selected: false
+        ssl_verify: true
         timeout:
-          max_connect_timeout: 300
-          max_read_timeout: 600
-          max_write_timeout: 600
-        title: 招标采集API
+          max_connect_timeout: 10
+          max_read_timeout: 120
+          max_write_timeout: 30
+        title: HTTP 请求
         type: http-request
-        url: http://host.docker.internal:5294/api/bidding/collect
+        url: '{{#env.BIDDING_API_BASE_URL#}}/api/bidding/collect'
         variables: []
-      height: 162
-      id: http-1
+      height: 136
+      id: '1786592691129'
       position:
-        x: 384
-        y: 200
+        x: 66.00000000000011
+        y: 246.21473846907912
       positionAbsolute:
-        x: 384
-        y: 200
+        x: 66.00000000000011
+        y: 246.21473846907912
       selected: false
+      sourcePosition: right
+      targetPosition: left
       type: custom
-      width: 244
+      width: 241
+      zIndex: 0
     - data:
-        code: "import json\n\ndef main(response: str) -> dict:\n    \"\"\"\n    \u89E3\
-          \u6790 API \u8FD4\u56DE\u7ED3\u679C\n    \"\"\"\n    try:\n        data\
-          \ = json.loads(response)\n        \n        # \u63D0\u53D6\u5173\u952E\u4FE1\
-          \u606F\n        plans_executed = data.get('plansExecuted', 0)\n       \
-          \ total_notices = data.get('totalNoticesCollected', 0)\n        status\
-          \ = data.get('status', 'unknown')\n        \n        # \u683C\u5F0F\u5316\
-          \u8F93\u51FA\n        summary = f\"\"\"\u26A1 \u62DB\u6807\u91C7\u96C6\u5B8C\
-          \u6210\n\n\u2705 \u6267\u884C\u8BA1\u5212\u6570: {plans_executed}\n\u{1F4CB}\
-          \ \u91C7\u96C6\u516C\u544A\u6570: {total_notices}\n\u{1F4CA} \u6267\u884C\
-          \u72B6\u6001: {status}\n\n\"\"\"\n        \n        # \u6DFB\u52A0\u5404\
-          \u8BA1\u5212\u8BE6\u60C5\n        if 'plans' in data:\n            summary\
-          \ += \"\\n\u{1F4DD} \u5404\u8BA1\u5212\u8BE6\u60C5:\\n\"\n            for\
-          \ plan in data['plans']:\n                plan_id = plan.get('planId',\
-          \ 'unknown')\n                collected = plan.get('noticesCollected', 0)\n\
-          \                outcome = plan.get('outcome', 'unknown')\n           \
-          \     summary += f\"  \u2022 {plan_id}: {collected} \u6761\u516C\u544A\
-          \ ({outcome})\\n\"\n        \n        return {\n            \"result\": summary,\n\
-          \            \"plans_executed\": plans_executed,\n            \"total_notices\"\
-          : total_notices,\n            \"status\": status\n        }\n    except\
-          \ Exception as e:\n        return {\n            \"result\": f\"\u274C \u89E3\
-          \u6790\u5931\u8D25: {str(e)}\",\n            \"plans_executed\": 0,\n  \
-          \          \"total_notices\": 0,\n            \"status\": \"error\"\n  \
-          \      }\n"
-        code_language: python3
-        desc: 格式化输出结果
         outputs:
-          plans_executed:
-            type: number
-          result:
-            type: string
-          status:
-            type: string
-          total_notices:
-            type: number
+        - value_selector:
+          - '1786598924035'
+          - text
+          value_type: string
+          variable: result
         selected: false
-        title: 格式化输出
+        title: 输出
+        type: end
+      height: 87
+      id: '1786597101836'
+      position:
+        x: 296.48215158379685
+        y: 605.8929141627596
+      positionAbsolute:
+        x: 296.48215158379685
+        y: 605.8929141627596
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        code: |-
+          import json
+
+          def main(run_result: str) -> dict:
+              try:
+                  data = json.loads(run_result or "{}")
+              except (TypeError, json.JSONDecodeError):
+                  return {"text": "采集结果无法解析，请检查上一步输出。"}
+
+              status = data.get("workflowStatus", "unknown")
+              total = data.get("totalNoticesCollected", 0)
+              plans = data.get("plansExecuted", 0)
+              skipped = data.get("skippedCount", 0)
+              lines = [
+                  "招标采集运行摘要",
+                  f"运行状态：{status}",
+                  f"执行计划：{plans} 个",
+                  f"采集公告：{total} 条",
+                  f"跳过计划：{skipped} 个",
+              ]
+              failed = [p for p in data.get("plans", []) if p.get("error")]
+              if failed:
+                  lines.append("错误计划：" + ", ".join(
+                      f"{p.get('planId', 'unknown')} ({p.get('error')})" for p in failed))
+              if status == "skipped":
+                  lines.append("说明：计划今天已经执行过，本次未重复推送。")
+              elif status == "success":
+                  lines.append("下一步：可查看采集台账或等待下一次定时执行。")
+              else:
+                  lines.append("下一步：检查上一步 API 响应和服务日志。")
+              return {"text": "\n".join(lines)}
+        code_language: python3
+        desc: 基于采集结果生成确定性运行摘要，不依赖外部 LLM 凭据
+        outputs:
+          text:
+            children: null
+            type: string
+        selected: false
+        title: 生成运行摘要
         type: code
         variables:
         - value_selector:
-          - http-1
-          - body
-          variable: response
-      height: 162
-      id: code-1
-      position:
-        x: 688
-        y: 200
-      positionAbsolute:
-        x: 688
-        y: 200
-      selected: false
-      type: custom
-      width: 244
-    - data:
-        desc: 输出采集结果
-        outputs:
-        - value_selector:
-          - code-1
+          - '1786599060590'
           - result
-          variable: result
-        - value_selector:
-          - code-1
-          - plans_executed
-          variable: plans_executed
-        - value_selector:
-          - code-1
-          - total_notices
-          variable: total_notices
-        - value_selector:
-          - code-1
-          - status
-          variable: status
-        selected: false
-        title: 结束
-        type: end
-      height: 133
-      id: end
+          value_type: string
+          variable: run_result
+      height: 87
+      id: '1786598924035'
       position:
-        x: 992
-        y: 200
+        x: 13.7229620594793
+        y: 489.8929141627598
       positionAbsolute:
-        x: 992
-        y: 200
+        x: 13.7229620594793
+        y: 489.8929141627598
       selected: false
+      sourcePosition: right
+      targetPosition: left
       type: custom
-      width: 244
+      width: 241
+      zIndex: 0
+    - data:
+        code: |-
+          import json
+
+          def main(response: str, http_status: int) -> dict:
+              try:
+                  status_code = int(http_status or 0)
+              except (TypeError, ValueError):
+                  status_code = 0
+
+              try:
+                  data = json.loads(response or "{}")
+              except (TypeError, json.JSONDecodeError):
+                  return _result("error", status_code, "API 返回了无法解析的 JSON", [])
+
+              if status_code < 200 or status_code >= 300:
+                  detail = data.get("detail") or data.get("title") or "请求失败"
+                  return _result("error", status_code, f"HTTP {status_code}: {detail}", [])
+
+              plans = data.get("plans")
+              if not isinstance(plans, list):
+                  return _result("error", status_code, "API 响应缺少 plans 数组", [])
+
+              plans_executed = _as_int(data.get("plansExecuted"))
+              total_notices = _as_int(data.get("totalNoticesCollected"))
+              skipped_count = _as_int(data.get("skippedCount"))
+              api_status = str(data.get("status") or "unknown").lower()
+              workflow_status = api_status
+              if api_status == "success" and plans_executed > 0 and skipped_count == plans_executed:
+                  workflow_status = "skipped"
+              elif api_status not in {"success", "partial"}:
+                  workflow_status = "error"
+
+              normalized_plans = []
+              for plan in plans:
+                  if not isinstance(plan, dict):
+                      continue
+                  normalized_plans.append({
+                      "planId": str(plan.get("planId") or "unknown"),
+                      "noticesCollected": _as_int(plan.get("noticesCollected")),
+                      "outcome": str(plan.get("outcome") or "unknown"),
+                      "error": plan.get("error"),
+                  })
+
+              payload = {
+                  "workflowStatus": workflow_status,
+                  "apiStatus": api_status,
+                  "httpStatus": status_code,
+                  "plansExecuted": plans_executed,
+                  "totalNoticesCollected": total_notices,
+                  "skippedCount": skipped_count,
+                  "plans": normalized_plans,
+              }
+              return {"result": json.dumps(payload, ensure_ascii=False)}
+
+          def _as_int(value) -> int:
+              try:
+                  return max(0, int(value or 0))
+              except (TypeError, ValueError):
+                  return 0
+
+          def _result(status: str, http_status: int, message: str, plans: list) -> dict:
+              return {"result": json.dumps({
+                  "workflowStatus": status,
+                  "httpStatus": http_status,
+                  "message": message,
+                  "plans": plans,
+              }, ensure_ascii=False)}
+        code_language: python3
+        outputs:
+          result:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行
+        type: code
+        variables:
+        - value_selector:
+          - '1786592691129'
+          - body
+          value_type: string
+          variable: response
+        - value_selector:
+          - '1786592691129'
+          - status_code
+          value_type: number
+          variable: http_status
+      height: 51
+      id: '1786599060590'
+      position:
+        x: -341.60895004072484
+        y: 513.0010659248466
+      positionAbsolute:
+        x: -341.60895004072484
+        y: 513.0010659248466
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    - data:
+        selected: false
+        title: 用户输入
+        type: start
+        variables:
+        - default: ''
+          hint: 多个计划 ID 使用英文逗号分隔；留空执行全部计划
+          label: 计划 ID
+          max_length: 256
+          options: []
+          placeholder: demo-plan-001
+          required: false
+          type: text-input
+          variable: planIds
+        - default: ''
+          hint: 留空使用 UTC 当日
+          label: 执行日期
+          max_length: 10
+          options: []
+          placeholder: yyyy-MM-dd
+          required: false
+          type: text-input
+          variable: asOf
+      height: 142
+      id: '1786599583970'
+      position:
+        x: -369.27253096931946
+        y: 245.21473846907912
+      positionAbsolute:
+        x: -369.27253096931946
+        y: 245.21473846907912
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+      zIndex: 0
+    - data:
+        code: |-
+          import datetime
+          import json
+
+          def main(plan_ids_text: str, as_of: str) -> dict:
+              payload = {}
+              plan_ids = [item.strip() for item in (plan_ids_text or "").split(",") if item.strip()]
+              if plan_ids:
+                  payload["planIds"] = plan_ids
+
+              normalized_as_of = (as_of or "").strip()
+              if normalized_as_of:
+                  try:
+                      datetime.date.fromisoformat(normalized_as_of)
+                  except ValueError as exc:
+                      raise ValueError("执行日期必须使用 yyyy-MM-dd 格式") from exc
+                  payload["asOf"] = normalized_as_of
+
+              return {"request_body": json.dumps(payload, ensure_ascii=False)}
+        code_language: python3
+        outputs:
+          request_body:
+            children: null
+            type: string
+        selected: true
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1786599583970'
+          - planIds
+          value_type: string
+          variable: plan_ids_text
+        - value_selector:
+          - '1786599583970'
+          - asOf
+          value_type: string
+          variable: as_of
+      height: 51
+      id: '1786599866896'
+      position:
+        x: -176.5261695833789
+        y: 172.08919284083004
+      positionAbsolute:
+        x: -176.5261695833789
+        y: 172.08919284083004
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 241
+      zIndex: 0
+    viewport:
+      x: 306.1683067612685
+      y: 134.10428949486555
+      zoom: 0.43527528164806323
+  rag_pipeline_variables: []

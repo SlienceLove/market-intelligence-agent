@@ -43,6 +43,14 @@ public sealed record ScheduledCollectionResult
     public string? FailureCode { get; init; }
     public string? NotificationId { get; init; }
 
+    /// <summary>
+    /// True when the coordinator returned a previously completed result instead
+    /// of running collection again. This lets on-demand callers distinguish a
+    /// cached idempotent response from a fresh completion without changing the
+    /// persisted completion status.
+    /// </summary>
+    public bool WasAlreadyCompleted { get; init; }
+
     public bool Succeeded => Status == ScheduledCollectionStatus.Completed;
 
     /// <summary>

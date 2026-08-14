@@ -4,8 +4,8 @@ info:
   version: "1.0"
   description: 招标信息采集接口 - Market Intelligence Agent
 servers:
-  - url: http://host.docker.internal:5294
-    description: 本地开发服务器（Docker容器内访问Windows主机）
+  - url: http://172.30.144.1:5294
+    description: 当前本机 WSL 网关（网关变化时按 ip route 更新）
 paths:
   /api/bidding/collect:
     post:
@@ -126,4 +126,4 @@ components:
       type: apiKey
       in: header
       name: X-Agent-Api-Key
-      description: API密钥用于认证请求。开发环境默认值：demo-key-2026
+      description: API 密钥用于认证请求；仅在 Dify Secret 配置中填写，不写入导出文件

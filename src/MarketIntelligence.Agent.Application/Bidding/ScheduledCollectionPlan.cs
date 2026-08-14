@@ -83,7 +83,9 @@ public sealed record ScheduledCollectionPlan
             return "invalid_plan_id";
         }
 
-        if (string.IsNullOrWhiteSpace(Name) || Name.Any(char.IsControl))
+        if (string.IsNullOrWhiteSpace(Name) ||
+            Name.Length > BiddingContractLimits.MaxTitleCharacters ||
+            Name.Any(char.IsControl))
         {
             return "invalid_plan_name";
         }
@@ -114,6 +116,20 @@ public sealed record ScheduledCollectionPlan
         if (MaxResults <= 0 || MaxResults > BiddingContractLimits.MaxResultsCeiling)
         {
             return "invalid_max_results";
+        }
+
+        if (!string.IsNullOrWhiteSpace(RegionFilter) &&
+            (RegionFilter.Length > BiddingContractLimits.MaxRegionCharacters ||
+             RegionFilter.Any(char.IsControl)))
+        {
+            return "invalid_region";
+        }
+
+        if (!string.IsNullOrWhiteSpace(IndustryFilter) &&
+            (IndustryFilter.Length > BiddingContractLimits.MaxIndustryCharacters ||
+             IndustryFilter.Any(char.IsControl)))
+        {
+            return "invalid_industry";
         }
 
         return ScheduledNotificationChannels.IsKnown(NotificationChannel)

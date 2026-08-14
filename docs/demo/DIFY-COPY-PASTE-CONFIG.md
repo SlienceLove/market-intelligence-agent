@@ -28,7 +28,7 @@ info:
   title: Bidding Collection API
   version: "1.0"
 servers:
-  - url: http://host.docker.internal:5294
+  - url: http://172.30.144.1:5294
 paths:
   /api/bidding/collect:
     post:
@@ -76,7 +76,7 @@ components:
 鉴权类型: API Key
 位置: Header
 Header 名称: X-Agent-Api-Key
-Header 值: demo-key-2026
+Header 值: <与 Bidding:BridgeApiKey 一致；仅在 Dify 中填写>
 ```
 
 ---
@@ -195,13 +195,13 @@ Header 值: demo-key-2026
 
 ### 401 Unauthorized
 **原因：** API Key 错误
-**解决：** 确认 Header 值为 `demo-key-2026`
+**解决：** 确认 Dify Secret 与 API 的 `Bidding:BridgeApiKey` 一致
 
 ### 返回 0 条公告
 **原因：** 今天已执行过该计划（去重生效）
 **解决：** 
 - 等到明天自动恢复
-- 或删除历史文件：`C:/tmp/bidding-demo-ledger/scheduled-collection-history.jsonl`
+- 或为隔离演示配置新的临时 `Bidding:LedgerRoot` 和执行日期；不要删除共享演示台账
 
 ---
 
@@ -209,8 +209,8 @@ Header 值: demo-key-2026
 
 - [ ] 工具名称设置为 `BiddingCollector`
 - [ ] OpenAPI Schema 已粘贴
-- [ ] 鉴权 Header 设置为 `X-Agent-Api-Key: demo-key-2026`
-- [ ] 测试通过，返回 `totalNoticesCollected: 2`
+- [ ] 鉴权 Header 设置为 `X-Agent-Api-Key`，值仅保存在 Dify Secret
+- [ ] 测试通过，首次运行返回 `totalNoticesCollected: 2`
 - [ ] 在 Workflow 中成功调用
 
 全部勾选即配置完成！🎉

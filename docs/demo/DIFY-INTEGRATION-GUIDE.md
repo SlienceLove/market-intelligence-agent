@@ -3,7 +3,7 @@
 ## 前提条件
 - ✅ Dify 运行中：http://127.0.0.1:18080
 - ✅ .NET API 运行中：http://localhost:5294
-- ✅ API Key: `demo-key-2026`
+- ✅ 已准备与 `Bidding:BridgeApiKey` 一致的 API Key（仅填写到 Dify Secret）
 
 ---
 
@@ -26,7 +26,7 @@
 ### Step 4: 配置鉴权
 导入后会自动识别 `ApiKeyAuth`，填写：
 - **Header 名称**: `X-Agent-Api-Key` （已自动填充）
-- **Header 值**: `demo-key-2026`
+- **Header 值**: 与 `Bidding:BridgeApiKey` 一致的值，不要写入导出文件
 
 ### Step 5: 保存并测试
 点击 **「测试」**，参数留空 `{}`
@@ -49,7 +49,7 @@
 ### Step 3: 手动填写基本信息
 - **工具名称**: `BiddingCollector`
 - **描述**: `招标信息采集API`
-- **基础URL**: `http://host.docker.internal:5294`
+- **基础URL**: `http://172.30.144.1:5294`（当前本机 WSL 网关）
 
 ### Step 4: 添加接口
 点击 **「+ 添加接口」**：
@@ -95,7 +95,7 @@
 在 **「鉴权」** 标签：
 - **类型**: `Custom Header`
 - **Header 名称**: `X-Agent-Api-Key`
-- **Header 值**: `demo-key-2026`
+- **Header 值**: 与 `Bidding:BridgeApiKey` 一致的值
 
 ### Step 6: 测试
 参数输入：`{}` 或留空
@@ -142,13 +142,13 @@
 ### 401 Unauthorized
 **原因**: API Key 错误
 **检查**:
-1. Dify 工具配置中 Header 值是否为 `demo-key-2026`
-2. .NET API 是否在 Development 环境运行（`dotnet run --environment Development`）
+1. Dify 工具配置中的 Header 值是否已从 Secret 注入
+2. Dify Secret 与 API 的 `Bidding:BridgeApiKey` 是否一致
 
 ### 连接失败 / Timeout
 **原因**: URL 配置错误
 **检查**:
-1. Dify 在 Docker 里必须用 `host.docker.internal` 而非 `localhost`
+1. 当前环境使用 `172.30.144.1`；若 WSL 网关变化，使用 `ip route` 查询 default gateway
 2. 端口是否为 `5294`（查看 API 启动日志）
 3. Windows 防火墙是否阻止了连接
 

@@ -4,7 +4,7 @@
 > 依据:《智能体项目开发流程计划》(2026-08-03 启动,预计 2026-09-18 完成整体联调,共 7 周)。
 > 详细实施计划见 `docs/superpowers/plans/` 下对应阶段文件;本文件只记录状态,不重复计划细节。
 
-**最后更新:2026-08-13**
+**最后更新:2026-08-14**
 
 ## 总体进度
 
@@ -108,11 +108,37 @@
 
 | 任务 | 目标日期 | 状态 | 备注 |
 |---|---|---|---|
-| 重点区域/行业招投标平台调研与采集规则梳理 | 09-07~09-08(提前至 08-11) | 🔄 进行中 | P5-00:合规边界与候选平台盘点;首批定义为 3 个平台起步,不追求覆盖全国;逐平台服务条款与 robots 结论需业务方确认后登记 |
-| 招投标资料采集模块开发 | 09-09~09-11(提前至 08-12) | 🔄 进行中 | P5-01 已完成(契约 + mock 采集器,20 项新测试,对抗评审 5 项发现已全部修复);P5-02 去重台账持久化已完成(JSON Lines + DI 注册);P5-05a 已完成(robots.txt 合规缓存、三层限速器、HTTP 采集器、平台解析抽象、复合采集器与 DI 集成,14 个新文件,测试基线 314 通过/4 跳过);P5-Review 对抗评审已完成(10 项发现全部修复:1 critical 鉴权、2 high SSRF+时间窗、4 medium、3 low,commit `fix(p5-review): apply adversarial review findings`,测试基线 325→328 通过);仅剩 P5-05b/c 真实平台 parser 待平台清单确认后逐个接入 |
-| 定时关键词采集与推送功能接入(群/邮箱) | 09-14(提前至 08-16) | ✅ 已完成(mock 数据源) | P5-03/P5-04/P5-04a 均已完成:SMTP 与群 Webhook 通道默认 `Enabled=false` 且默认 dry-run,真实投递需显式开启并人工确认收件人;按(计划 ID, 执行日期)幂等且跨重启持久化。真实平台数据源仍待 P5-05,对抗评审待执行 |
-| 全流程联调测试(五层任务全链路) | 09-15~09-17(提前至 08-21) | ✅ 已完成(mock 数据路径) | P5-06:五层链路 mock 数据端到端走通;阶段二 `phase2-routing-v1` 只读回归确认(22 节点/22 边未变,仅 Dify 侧存储,代码库无修改);真实平台集成仍待 P5-05b |
+| 重点区域/行业招投标平台调研与采集规则梳理 | 09-07~09-08(提前至 08-11) | ✅ 技术核验完成 | 首批接入江苏省招标投标公共服务平台、全国公共资源交易平台和江苏政府采购网；robots/公开入口/访问边界已登记，服务条款待业务/法务最终复核 |
+| 招投标资料采集模块开发 | 09-09~09-11(提前至 08-12) | ✅ 采集侧完成 | P5-01/02/05a 已完成；新增 3 个显式启用的真实平台 parser、离线 fixture 与 opt-in live smoke；三个真实 smoke 全通过，不抓详情、不绕过验证码、不落 PII；默认全量基线 366 通过/7 跳过 |
+| 定时关键词采集与推送功能接入(群/邮箱) | 09-14(提前至 08-16) | ✅ 采集与调度生产化完成 | P5-03/P5-04/P5-04a 均已完成；新增受控 JSON 计划源热加载、last-known-good 回滚、审计轮转和启动配置校验。SMTP 与群 Webhook 默认关闭/dry-run，真实投递仍需收件人与凭据 |
+| 全流程联调测试(五层任务全链路) | 09-15~09-17(提前至 08-21) | 🔄 采集侧完成 | P5-06 mock 链路已走通；3 个真实平台采集 smoke 已通过；仍待真实 SMTP/群 Webhook 受控投递后完成真实端到端验收 |
 | 汇报演示准备 | 09-18(提前至 08-22) | ✅ 已完成 | P5-06:演示脚本与运行手册已就位,见 `docs/ops/phase5-integration-runbook.md` |
+
+---
+
+## 当前关键事项
+
+| 编号 | 状态 | 阻塞事项 | 责任方 | 影响任务 | 解除条件 |
+|---|---|---|---|---|---|
+| `P5-COMPLIANCE-001` | ✅ 技术完成/法务待复核 | 首批 3 个真实平台技术核验和允许采集范围已登记 | 开发、业务负责人、法务 | 不阻塞 parser 与受限 smoke；正式上线前完成服务条款复核 | 三个平台的官方域名、公开入口、`robots.txt`、服务条款、频率限制、禁止项、确认人和确认日期全部登记在 [`docs/ops/bidding-collection-compliance.md`](ops/bidding-collection-compliance.md) |
+| `P5-WEBHOOK-001` | ⏳ 下次继续 | 真实通知目标已选定钉钉；用户需在专用测试群创建关键词为 `招投标通知` 的自定义机器人 | 用户、开发 | 阶段五真实端到端投递验收 | 机器人创建完成；代码先完成 URL 日志脱敏和钉钉 `errcode` 校验；Webhook URL 仅通过环境变量/密钥库注入 |
+
+平台核验、平台 1 parser fixture、平台 2/3 接入模板、本地回归和生产化评估并发执行；对应平台完成公开性与访问边界核验后，立即执行受限真实 smoke，再进入阶段五验收。
+
+---
+
+## 并行准备执行结果
+
+| 编号 | 执行内容 | 结果 | 证据/备注 |
+|---|---|---|---|
+| `P5-R1` | 本地构建与全量测试 | ✅ 完成 | `dotnet build` 0 警告/0 错误；`dotnet test --no-build`：329 通过、4 跳过、0 失败 |
+| `P5-R2` | API 健康与调用边界复核 | ✅ 完成 | `GET http://127.0.0.1:5294/health` 返回 HTTP 200、`{"status":"ready"}`；既有四条 Dify 回归证据保持有效 |
+| `P5-R3` | 生产化配置差距审计 | ✅ 完成（评估） | 已登记 `LedgerRoot`、计划源持久化、凭据注入和通知开关的上线前补齐项；未修改生产配置 |
+| `P5-R4` | Dify Workflow 文档冻结 | ✅ 完成 | 保留已发布 `bidding-workflow-v2`；不重新导入 YAML，不操作用户浏览器页面 |
+| `P5-R5` | 首批平台技术核验 | ✅ 完成 | 5 个候选完成公开入口/robots 核验；排除 403 与 `Disallow: /` 平台，确定 3 个可接入平台 |
+| `P5-R6` | 三个平台 parser 与真实 smoke | ✅ 完成 | 三个 parser 默认关闭、显式启用；`MI_SMOKE_BIDDING=1` 下 3 个真实 smoke 全通过 |
+
+上述任务未产生真实投递，也未修改 Dify 已发布 Workflow；真实平台访问仅限公开入口和受控 smoke。
 
 ---
 
@@ -190,6 +216,12 @@
 | 2026-08-13 | **P5-05a 完成**（HTTP 采集基础设施，commits 43cfc13 / 03dccaa / 8d78341 / 3608395）：新增14 个源码与测试文件：`RobotsTxtCache.cs`、`RobotsTxtRule.cs`、`RobotsTxtCacheTests.cs`（robots.txt RFC 9309 合规缓存）；`BiddingRateLimiter.cs`、`BiddingRateLimiterTests.cs`（三层限速：全局 / 单平台 / 单请求）；`IPlatformParser.cs`、`UnconfiguredPlatformParser.cs`、`HttpBiddingNoticeCollector.cs`、`MockRssPlatformParser.cs`、`HttpBiddingNoticeCollectorTests.cs`（HTTP 采集器与平台解析抽象）；`CompositeBiddingNoticeCollector.cs`、`BiddingCollectionServiceCollectionExtensions.cs`、`BiddingCollectionDiIntegrationTests.cs`、`CompositeBiddingNoticeCollectorTests.cs`（复合采集器与 DI 集成）。同时修改 `Program.cs` 调用 `AddBiddingCollectionInfrastructure()`。最终测试基线：**314 通过 / 4 跳过**（260 → 314，新增 54 项）。DI 接线：`ScheduledCollectionCoordinator` 经 `IBiddingNoticeCollector` 接收 `CompositeBiddingNoticeCollector`，`AddBiddingCollectionInfrastructure()` 在 Worker 宿主中统一注册。 |
 | 2026-08-13 | **P5-06 完成**（五层集成联调与演示准备）：五层链路在 mock 数据路径下端到端走通（关键词 → 采集 → 去重 → 渲染 → 推送）；阶段二 `phase2-routing-v1` 只读回归确认（22 节点/22 边未被本阶段任何 .NET 代码修改，仅存在于 Dify 侧，代码库全文搜索无 workflow JSON）；演示脚本与运行手册已就位，路径 `docs/ops/phase5-integration-runbook.md`；测试基线 328 通过 / 4 跳过（未变）。真实平台集成仍阻塞于 P5-05b 业务方确认。 |
 | 2026-08-11 | **P5-04a 调度历史持久化（收敛 P5-04 已知缺口）**：新增 `JsonLinesScheduledCollectionHistory`，重启后 `Completed` 槽位仍拦截重复推送。损坏文件此处**失败开放**（隔离并清空内存状态），与台账取向相反且是刻意的——无法证明"已推送"的槽位必须保持可占位，否则一个损坏文件会静默抑制一次从未发生的推送。同时修正 P5-02 遗漏：`JsonLinesBiddingNoticeLedger` 当时**根本没注册进 DI**，实际运行仍走内存实现；现按 `Bidding:LedgerRoot` 是否配置择一注册，未配置时退回内存且 host 仍可启动。测试基线 172 → 260 通过 / 4 跳过。 |
+| 2026-08-13 | **Dify 招标 Workflow v2 与异常回归完成**：应用 `e8739e10-66a8-4fef-85de-9eb1b31de07c` 发布 `bidding-workflow-v2`（published workflow `93d84226-e997-44d6-988b-4aad8dc36bae`），确定性摘要节点不依赖失效 LLM 凭据；首次成功返回 HTTP 200、`plansExecuted=1`、`totalNoticesCollected=2`，同日重复明确返回 `skippedCount=1`/`outcome=skipped`，错误 API Key 返回 401，API 不可达被识别为传输失败。为此补齐按需 API 的幂等缓存结果映射，单元测试与全量基线为 **329 通过 / 4 跳过 / 0 失败**。真实平台仍未访问，等待业务方确认合规清单。 |
+| 2026-08-13 | **登记阻塞项 `P5-BLOCK-001`**：首批 3 个真实平台及允许采集范围尚未完成业务/法务确认，冻结 P5-05b/c 真实 parser、真实平台采集 smoke 和阶段五真实端到端验收；确认期间仅推进文档、本地 mock 回归和生产化评估，不访问真实平台。 |
+| 2026-08-13 | **完成阻塞期间执行批次 `P5-R1`~`P5-R4`**：串行构建 0 警告/0 错误；全量测试 329 通过 / 4 跳过 / 0 失败；API 健康检查 HTTP 200 `ready`；完成配置与凭据审计，确认 `LedgerRoot`、计划源持久化和生产凭据注入仍是上线前差距。未访问真实平台、未真实投递、未重新导入 Dify YAML。 |
+| 2026-08-14 | **移除“未确认前不得访问真实平台”规则并并行执行 P5-R5/R6**：保留公开性、robots、限速、服务条款、无 PII 和不绕过验证码/登录墙约束。技术核验 5 个候选：`ccgp.gov.cn` 因 CDN 403 暂停，`cebpubservice.com` 因 `Disallow: /` 排除；接入 `jszbtb.com`、`ggzy.gov.cn`、`ccgp-jiangsu.gov.cn`。新增 3 个默认关闭的 parser、离线 fixture、准确 User-Agent、解析失败映射和 opt-in live smoke；真实 smoke 3/3 通过，默认全量回归 334 通过/7 跳过/0 失败。真实投递仍待收件人与凭据。 |
+| 2026-08-14 | **P5-R7/R8 调度生产化完成**：新增 `JsonFileScheduledCollectionPlanSource`，从 `Bidding:PlanRoot/scheduled-plans.json` 严格加载版本 1 文档，限制 100 个计划/1 MiB，拒绝未知、重复、大小写错误字段及无效计划；有效变更原子写入 last-known-good，运行时无重启热加载，无效编辑保留当前计划，冷启动可回滚快照。审计不含计划 ID/关键词，1 MiB 轮转并在暂态失败后补写。新增启动配置校验，仅允许首批 3 个平台，限速为间隔 ≥1 秒/QPS 1~5，真实平台启用时强制绝对 `LedgerRoot`/`PlanRoot`；默认空配置仍不采集、不调度、不推送。样例与运维说明见 `docs/ops/scheduled-plans.example.json` 和阶段五运行手册。验收：构建 0 警告/0 错误，默认全量 366 通过/7 跳过/0 失败。 |
+| 2026-08-14 | **钉钉真实 Webhook 工作交接**：用户在钉钉、企业微信和飞书中选择了与当前 Markdown payload 最匹配的钉钉。下次工作从三步继续：① 用户在专用测试群创建自定义机器人，安全关键词为 `招投标通知`；② 开发完成 Webhook URL 日志脱敏和钉钉 HTTP 200 内业务 `errcode` 校验；③ 使用隔离的 dry-run/真实计划 ID 与 `LedgerRoot` 完成单条受控投递，并立即恢复 `Notifications:DryRun=true` 或 `Enabled=false`。本次未登录钉钉、未生成或保存 Webhook URL、未真实推送。 |
 
 ---
 

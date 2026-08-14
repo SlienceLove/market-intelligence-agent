@@ -66,7 +66,7 @@ public sealed class ScheduledCollectionCoordinator : IScheduledCollectionCoordin
             _logger.LogInformation(
                 "Plan {PlanId} for {ExecutionDate} already completed. Returning cached result.",
                 plan.PlanId, executionDate);
-            return existingResult;
+            return existingResult with { WasAlreadyCompleted = true };
         }
 
         // Record this execution attempt

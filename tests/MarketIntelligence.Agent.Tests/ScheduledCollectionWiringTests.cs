@@ -6,6 +6,7 @@ using MarketIntelligence.Agent.Infrastructure.Bidding;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MarketIntelligence.Agent.Tests;
 
@@ -132,6 +133,42 @@ public sealed class ScheduledCollectionWiringTests
                 Directory.Delete(root, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public void WithPlanRoot_PlanSourceUsesControlledJsonFile()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "mia-plan-wiring-tests", Guid.NewGuid().ToString("N"));
+
+        try
+        {
+            using var provider = BuildProvider(new Dictionary<string, string?>
+            {
+                ["Bidding:PlanRoot"] = root
+            });
+
+            Assert.IsType<JsonFileScheduledCollectionPlanSource>(
+                provider.GetRequiredService<IScheduledCollectionPlanSource>());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public void InvalidBiddingConfiguration_IsRejectedWhenOptionsAreResolved()
+    {
+        using var provider = BuildProvider(new Dictionary<string, string?>
+        {
+            ["Bidding:Collector:EnabledPlatforms:0"] = "unsupported.example"
+        });
+
+        Assert.Throws<OptionsValidationException>(() =>
+            provider.GetRequiredService<IOptions<BiddingOptions>>().Value);
     }
 
     private static ServiceProvider BuildProvider(IDictionary<string, string?>? settings = null)

@@ -53,6 +53,7 @@ public sealed class ScheduledCollectionCoordinatorTests
         Assert.Equal(1, channel.SendCount);
         Assert.Equal(first.NotificationId, second.NotificationId);
         Assert.Equal(first.NoticesNotified, second.NoticesNotified);
+        Assert.True(second.WasAlreadyCompleted);
     }
 
     [Fact]

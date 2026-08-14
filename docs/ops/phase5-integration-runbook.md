@@ -120,10 +120,10 @@ Worker
                     │    ├─ JsonLinesScheduledCollectionHistory (LedgerRoot configured)
                     │    └─ InMemoryScheduledCollectionHistory  (fallback)
                     ├─ INotificationChannel [smtp]
-                    │    ├─ SmtpNotificationChannel       (Smtp:Enabled=true)
+                    │    ├─ SmtpNotificationChannel       (Notifications:Enabled=true)
                     │    └─ UnconfiguredNotificationChannel (default)
                     └─ INotificationChannel [webhook]
-                         ├─ WebhookNotificationChannel    (Webhook:Enabled=true)
+                         ├─ WebhookNotificationChannel    (Notifications:Enabled=true)
                          └─ UnconfiguredNotificationChannel (default)
 
 API
@@ -142,19 +142,26 @@ API
 |-----|---------|---------|--------------|
 | `Bidding:BridgeApiKey` | API auth (`X-Agent-Api-Key`) | (empty) | Any API call |
 | `Bidding:LedgerRoot` | Directory for JSON Lines files | (empty) | Cross-restart persistence |
-| `Bidding:Smtp:Enabled` | Enable SMTP channel | `false` | Email delivery |
-| `Bidding:Smtp:DryRun` | Render but do not send | `true` | Override to `false` for real email |
-| `Bidding:Smtp:Host` | SMTP server hostname | (empty) | Email delivery |
-| `Bidding:Smtp:Port` | SMTP port | 587 | Email delivery |
-| `Bidding:Smtp:Username` | SMTP auth username | (empty) | Email delivery |
-| `Bidding:Smtp:Password` | SMTP auth password | (empty) | Env var or secrets store only |
-| `Bidding:Webhook:Enabled` | Enable Webhook channel | `false` | Webhook delivery |
-| `Bidding:Webhook:DryRun` | Render but do not POST | `true` | Override to `false` for real POST |
-| `Bidding:Webhook:Url` | Webhook endpoint (HTTPS only) | (empty) | Webhook delivery |
+| `Bidding:PlanRoot` | Controlled directory containing `scheduled-plans.json` | (empty) | File-backed schedules and live collection |
+| `Bidding:Collector:EnabledPlatforms` | Explicit real-platform allowlist | `[]` | Live collection (`jszbtb.com`, `ggzy.gov.cn`, `ccgp-jiangsu.gov.cn`) |
+| `Bidding:Collector:MinimumIntervalSeconds` | Minimum per-platform request interval | `2` | Must be at least `1` |
+| `Bidding:Collector:GlobalQpsLimit` | Global collection request ceiling | `5` | Must be between `1` and `5` |
+| `Notifications:Enabled` | Master notification switch | `false` | Any dry-run or real delivery |
+| `Notifications:DryRun` | Render but do not send | `true` | Set `false` only for an approved real smoke |
+| `Notifications:Smtp:Host` | SMTP server hostname | (empty) | Email delivery |
+| `Notifications:Smtp:Port` | SMTP port | 587 | Email delivery |
+| `Notifications:Smtp:Username` | SMTP auth username | (empty) | Email delivery |
+| `Notifications:Smtp:Password` | SMTP auth password | (empty) | Env var or secrets store only |
+| `Notifications:Smtp:Recipients` | Approved recipient list | `[]` | Email delivery |
+| `Notifications:Webhook:Url` | Webhook endpoint (HTTPS only) | (empty) | Webhook delivery |
 
-Credentials (`Smtp:Password`, `Webhook:Url`) must come from environment variables or
+Credentials (`Notifications:Smtp:Password`, `Notifications:Webhook:Url`) must come from environment variables or
 a local secrets store. Do not write them in `appsettings.json` or commit them to the
 repository.
+
+When any real platform is enabled, both `LedgerRoot` and `PlanRoot` must be
+absolute paths. Startup validation rejects unknown platform IDs, duplicate IDs,
+unsafe rate values, and missing/relative persistence roots.
 
 ### Environment
 
@@ -196,27 +203,13 @@ info: ScheduledBiddingCollectionService
 
 ### Step 3: Configure a demo plan
 
-Plans are supplied via `IScheduledCollectionPlanSource`, registered in DI.
-The default implementation is `InMemoryScheduledCollectionPlanSource` with an empty
-list. To supply a demo plan for local testing, register it in the Worker's DI setup
-(Development environment only — do not commit real keywords or schedules):
+Copy `docs/ops/scheduled-plans.example.json` to the fixed active filename under a
+controlled local directory. Do not put credentials or recipient addresses in it.
 
-```csharp
-// In Worker Program.cs, under Development environment guard:
-services.AddSingleton<IScheduledCollectionPlanSource>(_ =>
-    new InMemoryScheduledCollectionPlanSource([
-        new ScheduledCollectionPlan
-        {
-            PlanId            = "demo-plan-001",
-            Name              = "Demo — 工业自动化招标",
-            Enabled           = true,
-            Keywords          = ["工业自动化", "智能制造", "PLC"],
-            ExecutionTimeUtc  = new TimeOnly(9, 0),
-            NotificationChannel = "webhook",
-            LookbackDays      = 7,
-            MaxResults        = 20
-        }
-    ]));
+```powershell
+$planRoot = "C:/tmp/bidding-demo-plans"
+New-Item -ItemType Directory -Force -Path $planRoot
+Copy-Item docs/ops/scheduled-plans.example.json "$planRoot/scheduled-plans.json"
 ```
 
 Add `appsettings.Development.json` (not committed to VCS):
@@ -224,14 +217,32 @@ Add `appsettings.Development.json` (not committed to VCS):
 ```json
 {
   "Bidding": {
-    "BridgeApiKey": "demo-key-local",
-    "LedgerRoot":   "C:/tmp/bidding-ledger",
-    "Webhook": { "Enabled": false, "DryRun": true }
+    "BridgeApiKey": "<runtime-only-demo-key>",
+    "LedgerRoot":   "C:/tmp/bidding-demo-ledger",
+    "PlanRoot":     "C:/tmp/bidding-demo-plans",
+    "Collector": {
+      "EnabledPlatforms": []
+    }
+  },
+  "Notifications": {
+    "Enabled": true,
+    "DryRun": true,
+    "Webhook": { "Url": "" }
   }
 }
 ```
 
 `DryRun: true` means notifications are fully rendered and logged but not delivered.
+
+The plan source accepts document version `1`, at most 100 plans, and at most 1 MiB.
+JSON fields are strict camelCase and duplicate or unknown fields reject the whole
+edit. A valid load atomically updates `scheduled-plans.last-known-good.json`. Invalid
+runtime edits retain the current plans; after restart an invalid or missing active
+file falls back to that snapshot. Audit metadata is written to
+`scheduled-plans.audit.jsonl`, rotates to one `scheduled-plans.audit.previous.jsonl`
+file at 1 MiB, and contains hashes/outcomes rather than plan IDs or keywords. Give
+the directory ACL only to the service identity and one deployment writer; do not
+share one `PlanRoot` between multiple running instances.
 
 ### Step 4: Trigger on-demand via API
 
@@ -245,10 +256,10 @@ dotnet run --environment Development
 Then POST a collection request:
 
 ```bash
-curl -X POST http://localhost:5000/api/bidding/collect \
+curl -X POST http://localhost:5294/api/bidding/collect \
   -H "Content-Type: application/json" \
-  -H "X-Agent-Api-Key: demo-key-local" \
-  -d '{"planIds": ["demo-plan-001"]}'
+  -H "X-Agent-Api-Key: <runtime-only-demo-key>" \
+  -d '{"planIds": ["daily-market"]}'
 ```
 
 ### Step 5: Expected API response
@@ -256,13 +267,13 @@ curl -X POST http://localhost:5000/api/bidding/collect \
 ```json
 {
   "plansExecuted": 1,
-  "totalNoticesCollected": 5,
+  "totalNoticesCollected": 2,
   "skippedCount": 0,
   "status": "success",
   "plans": [
     {
-      "planId": "demo-plan-001",
-      "noticesCollected": 5,
+      "planId": "daily-market",
+      "noticesCollected": 2,
       "outcome": "completed",
       "error": null
     }
@@ -280,9 +291,9 @@ With `Bidding:LedgerRoot` set, the directory contains two JSON Lines files after
 the first successful run:
 
 ```
-C:/tmp/bidding-ledger/
-  notices.jsonl   ← fingerprint dedup ledger (one record per fingerprint)
-  history.jsonl   ← execution history (one record per (planId, date))
+C:/tmp/bidding-demo-ledger/
+  bidding-notices.jsonl          ← fingerprint dedup ledger
+  bidding-schedule-history.jsonl ← execution history (one record per (planId, date))
 ```
 
 Sample `notices.jsonl` line:
@@ -294,7 +305,7 @@ Sample `notices.jsonl` line:
 Sample `history.jsonl` line:
 
 ```json
-{"planId":"demo-plan-001","executionDate":"2026-08-13","status":"Completed","noticesCollected":5,"noticesDeduplicated":5,"noticesNotified":5}
+{"planId":"daily-market","executionDate":"2026-08-13","status":"Completed","noticesCollected":2,"noticesDeduplicated":2,"noticesNotified":2}
 ```
 
 ### Step 7: Verify dry-run notification in logs
@@ -302,14 +313,15 @@ Sample `history.jsonl` line:
 With `DryRun: true`, no real notification is sent. Coordinator log shows:
 
 ```
-info: ScheduledCollectionCoordinator  Plan demo-plan-001 collected 5 notices.
-info: ScheduledCollectionCoordinator  Plan demo-plan-001: 5 new notices after deduplication (from 5).
-info: ScheduledCollectionCoordinator  Plan demo-plan-001 completed successfully. Notification <dry-run-id> delivered.
+info: ScheduledCollectionCoordinator  Plan daily-market collected 2 notices.
+info: ScheduledCollectionCoordinator  Plan daily-market: 2 new notices after deduplication (from 2).
+info: ScheduledCollectionCoordinator  Plan daily-market completed successfully. Notification <dry-run-id> delivered.
 ```
 
-To enable real delivery: set `Webhook:DryRun: false` and `Webhook:Url` to a valid
-HTTPS endpoint (not an IP literal, not a private address). For email: set
-`Smtp:Enabled: true` plus SMTP credentials from environment variables only.
+To enable real delivery: set `Notifications:DryRun: false` and
+`Notifications:Webhook:Url` to a valid
+HTTPS endpoint (not an IP literal, not a private address). For email, configure
+`Notifications:Smtp` plus SMTP credentials from environment variables only.
 
 ### Layer Trace Summary
 
@@ -317,9 +329,9 @@ HTTPS endpoint (not an IP literal, not a private address). For email: set
 |-------|--------|-----------|---------------------|
 | 1 Keywords | Plan keywords → BiddingCollectionRequest | ScheduledCollectionPlan | Config / API request body |
 | 2 Ingest | Platform queried, notices parsed | MockRssPlatformParser | Log: "collected N notices" |
-| 3 Knowledge | Fingerprint registered, dedup | JsonLinesBiddingNoticeLedger | `notices.jsonl` on disk |
+| 3 Knowledge | Fingerprint registered, dedup | JsonLinesBiddingNoticeLedger | `bidding-notices.jsonl` on disk |
 | 4 Content | NotificationMessage rendered (text+markdown) | ScheduledCollectionCoordinator | Log: dry-run result |
-| 5 Delivery | Channel sends (or dry-runs) | SmtpNotificationChannel / WebhookNotificationChannel | `history.jsonl`: status=Completed |
+| 5 Delivery | Channel sends (or dry-runs) | SmtpNotificationChannel / WebhookNotificationChannel | `bidding-schedule-history.jsonl`: status=Completed |
 
 ---
 
@@ -377,7 +389,7 @@ independent, unpublished Dify Workflow drafts. No Phase 5 code touches them.
 
 **Audience:** Business stakeholders
 **Duration:** ~10 minutes
-**Prerequisites:** Worker and API running with demo plan registered; `DryRun: true`
+**Prerequisites:** Worker and API running with the example plan loaded; `Notifications:DryRun: true`
 
 ---
 
@@ -413,13 +425,13 @@ next tick."*
 **Scene 2 — Trigger on-demand via API (2 min)**
 
 ```bash
-curl -X POST http://localhost:5000/api/bidding/collect \
+curl -X POST http://localhost:5294/api/bidding/collect \
   -H "Content-Type: application/json" \
-  -H "X-Agent-Api-Key: demo-key-local" \
-  -d '{"planIds": ["demo-plan-001"]}'
+  -H "X-Agent-Api-Key: <runtime-only-demo-key>" \
+  -d '{"planIds": ["daily-market"]}'
 ```
 
-Show the JSON response: `plansExecuted: 1, totalNoticesCollected: 5, status: success`.
+Show the JSON response: `plansExecuted: 1, totalNoticesCollected: 2, status: success`.
 
 *"The API lets us trigger any plan immediately — useful for ad-hoc collection
 outside the normal schedule. The response shows how many notices were collected
@@ -428,7 +440,7 @@ and whether any were new."*
 **Scene 3 — Show notices in the ledger (1.5 min)**
 
 ```bash
-cat C:/tmp/bidding-ledger/notices.jsonl
+cat C:/tmp/bidding-demo-ledger/bidding-notices.jsonl
 ```
 
 Point out `fingerprint`, `firstSeenAt`, `notifiedAt`.
@@ -442,7 +454,7 @@ it will not resend notices you already received."*
 Point to the Worker log:
 
 ```
-Plan demo-plan-001 completed successfully. Notification <id> delivered.
+Plan daily-market completed successfully. Notification <id> delivered.
 ```
 
 *"DryRun is enabled in this demo — the notification is fully formatted and logged,
@@ -452,7 +464,7 @@ confirming the recipient list."*
 
 **Scene 5 — Show idempotency (1 min)**
 
-Run the same curl again. Show `"outcome": "skipped"`.
+Run the same curl again. Show `"skippedCount": 1`, `"outcome": "skipped"`, and `"error": "already_completed"`.
 
 *"The system already ran this plan today. The idempotency guard prevents a second
 delivery. This protection holds across restarts — the execution history is stored
@@ -472,12 +484,13 @@ All five layers run independently and do not block each other."*
 
 | Symptom | Likely cause | Talking point |
 |---------|-------------|---------------|
-| `totalNoticesCollected: 0` | Mock parser returned no fixture matches | "The mock uses fixture data. Live platforms return real notices once the platform list is approved." |
+| `totalNoticesCollected: 0` with `outcome=skipped` | The `(planId, date)` slot is already completed | "The idempotency guard prevented a duplicate push." |
+| `totalNoticesCollected: 0` on a fresh run | Mock parser returned no fixture matches | "The mock uses fixture data. Live platforms return real notices once the platform list is approved." |
 | `"outcome": "skipped"` on first attempt | Plan already ran today from a prior test | "The idempotency guard is working correctly — this prevents duplicate pushes in production." |
 | HTTP 401 | Wrong or missing `X-Agent-Api-Key` | "Authentication is working. Let me use the correct key." |
 | HTTP 500 | Configuration gap — check coordinator logs | "There is a configuration issue I will fix offline. The architecture and flow still apply." |
-| No notification in logs | `Webhook:Enabled: false` | "Notifications are disabled by default for safety. Real delivery requires explicit opt-in after confirming recipients." |
-| `notices.jsonl` not found | `LedgerRoot` not configured | "Without LedgerRoot set, the ledger is in-memory only. The pipeline still runs; cross-restart persistence is inactive." |
+| No notification in logs | `Notifications:Enabled: false` | "Notifications are disabled by default for safety. Real delivery requires explicit opt-in after confirming recipients." |
+| `bidding-notices.jsonl` not found | `LedgerRoot` not configured | "Without LedgerRoot set, the ledger is in-memory only. The pipeline still runs; cross-restart persistence is inactive." |
 
 ---
 
@@ -485,9 +498,9 @@ All five layers run independently and do not block each other."*
 
 | Item | Status | Impact |
 |------|--------|--------|
-| P5-05b: Real platform parsers | Blocked — awaiting business approval of platform list | Only mock (fixture) data collected; no live bidding notices |
+| P5-05b: Real platform parsers | Complete for the first three opt-in platforms | Live smoke passed for `jszbtb.com`, `ggzy.gov.cn`, and `ccgp-jiangsu.gov.cn` |
 | Layer 4 Dify integration | Future work | Phase 3 content-generation Workflow not yet wired into notification rendering |
-| Plan source persistence | `InMemoryScheduledCollectionPlanSource` backed by DI registration | Plans cannot be added or changed without restarting the service |
+| Plan source persistence | Controlled JSON source with runtime reload, audit, and last-known-good rollback | Multi-instance shared-root coordination is intentionally unsupported |
 | Scale testing | Not yet performed | Behavior with multiple real platforms and high notice volumes is untested |
 | Multi-platform collection | Platforms iterated serially by `CompositeBiddingNoticeCollector` | No parallel collection; acceptable for ≤5 platforms, revisit at scale |
 | Real SMTP/Webhook smoke | Not yet performed end-to-end | Delivery tested at unit/integration level; no live server smoke test |
@@ -510,8 +523,8 @@ is called in `Program.cs` (API) and in the Worker's service registration.
 
 **`notification_not_configured` in response**
 
-The notification channel is disabled. Set `Bidding:Webhook:Enabled: true` or
-`Bidding:Smtp:Enabled: true`. With `DryRun: true` the notification is rendered and
+The notification channel is disabled. Set `Notifications:Enabled: true` and configure
+either `Notifications:Webhook` or `Notifications:Smtp`. With `Notifications:DryRun: true` the notification is rendered and
 logged without being delivered — safe for development and demo.
 
 **Plan never triggers on schedule**
@@ -531,7 +544,7 @@ Files are isolated automatically: the corrupted file is renamed to
 `.corrupted.YYYYMMDD-HHmmss` and the in-memory state is reset. The service
 continues running.
 
-Note: a corrupted `history.jsonl` clears the execution slots for the current day,
+Note: a corrupted `bidding-schedule-history.jsonl` clears the execution slots for the current day,
 which may allow re-execution. This is intentional (fail-open): it is safer to
 re-send a notice once than to silently suppress one that was never sent.
 

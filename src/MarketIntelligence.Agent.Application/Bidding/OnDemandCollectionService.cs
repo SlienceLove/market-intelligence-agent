@@ -50,24 +50,27 @@ public sealed class OnDemandCollectionService
             try
             {
                 var result = await _coordinator.ExecuteAsync(plan, asOf, cancellationToken);
-                if (result.Succeeded)
+                var wasSkipped = result.Status == ScheduledCollectionStatus.Skipped ||
+                                 result.WasAlreadyCompleted;
+
+                if (result.Succeeded && !wasSkipped)
                 {
                     succeededCount++;
                 }
-                else if (result.Status == ScheduledCollectionStatus.Skipped)
+                else if (wasSkipped)
                 {
-                    // Skipped means the plan already ran today (idempotency guard fired).
-                    // This is not an error; count it separately so the caller can distinguish
-                    // "all done" from "all truly failed".
+                    // A completed result can be returned from the coordinator's cache.
+                    // Normalize that response to the on-demand API's explicit skipped
+                    // outcome so callers can tell a fresh run from a duplicate request.
                     skippedCount++;
                 }
 
                 summaries.Add(new PlanCollectionSummary
                 {
                     PlanId = result.PlanId,
-                    NoticesCollected = result.NoticesCollected,
-                    Outcome = result.Status.ToString().ToLowerInvariant(),
-                    Error = result.FailureCode
+                    NoticesCollected = wasSkipped ? 0 : result.NoticesCollected,
+                    Outcome = wasSkipped ? "skipped" : result.Status.ToString().ToLowerInvariant(),
+                    Error = wasSkipped ? (result.FailureCode ?? "already_completed") : result.FailureCode
                 });
             }
             catch (OperationCanceledException)
